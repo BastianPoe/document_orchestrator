@@ -193,11 +193,15 @@ while True:
     # Process all files coming in from the scanner
     files = os.listdir(dirs["scanner_out"])
     for file in files:
+        if not os.path.isfile(os.path.join(dirs["scanner_out"], file)):
+            continue
         processScannerFile(dirs["scanner_out"], file, prefix, dirs["ocr_in"], dirs["archive_raw"])
 
     # Process all files coming out of OCR
     files = os.listdir(dirs["ocr_out"])
     for file in files:
+        if not os.path.isfile(os.path.join(dirs["ocr_out"], file)):
+            continue
         processOcredFile(dirs["ocr_out"], file, dirs["consumption"], dirs["archive_ocred"])
 
     # Check for status of all files in the DB
