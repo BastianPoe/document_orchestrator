@@ -89,11 +89,16 @@ def readPrefix(directory, filename):
     prefix = f.read()
     return prefix.strip()
 
+def readUid(directory, filename):
+    f = open(os.path.join(directory, filename), "r")
+    uid = int(f.read().strip())
+    return uid
+
 def getIndex(directory):
     files = os.listdir(directory)
     return len(files)
 
-def processScannerFile(directory, filename, prefix, ocr_in, archive_raw):
+def processScannerFile(directory, filename, prefix, ocr_in, archive_raw, uid):
     name = None
     index = getIndex(dirs["archive_raw"])
 
@@ -129,22 +134,26 @@ def processScannerFile(directory, filename, prefix, ocr_in, archive_raw):
     # Copy to OCR hot folder
     logging.info("Saving to " + os.path.join(ocr_in, name))
     shutil.copyfile(os.path.join(directory, filename), os.path.join(ocr_in, name))
+    os.chown(os.path.join(ocr_in, name), uid, -1)
 
     # Copy to permanent archive
     logging.info("Saving to " + os.path.join(archive_raw, name))
     shutil.copyfile(os.path.join(directory, filename), os.path.join(archive_raw, name))
+    os.chown(os.path.join(archive_raw, name), uid, -1)
 
     # Remove input file
     os.unlink(os.path.join(directory, filename))
 
-def processOcredFile(directory, filename, consumption, archive_ocred):
+def processOcredFile(directory, filename, consumption, archive_ocred, uid):
     logging.info("Handling OCRed file " + filename)
 
     logging.info("Saving to " + os.path.join(consumption, filename))
     shutil.copyfile(os.path.join(directory, filename), os.path.join(consumption, filename))
+    os.chown(os.path.join(consumption, filename), uid, -1)
 
     logging.info("Saving to " + os.path.join(archive_ocred, filename))
     shutil.copyfile(os.path.join(directory, filename), os.path.join(archive_ocred, filename))
+    os.chown(os.path.join(archive_ocred, filename), uid, -1)
 
     # Update database
     hash_ocr = getHash(os.path.join(directory, filename))
@@ -175,11 +184,13 @@ def checkStatus(directory):
 
     connection.commit()
 
-def serveOcrQueue(directory, filename, ocr_in):
+def serveOcrQueue(directory, filename, ocr_in, uid):
     if len(os.listdir(ocr_in)) > 0:
         return
 
+    logging.info("Starting OCR of " + filename)
     shutil.move(os.path.join(directory, filename), os.path.join(ocr_in, filename))
+    os.chown(os.path.join(ocr_in, filename), uid, -1)
 
     updateStatus(filename, "ocring")
 
@@ -223,6 +234,8 @@ def ParseOcrLog(directory, filename):
             result["Chars_Total"] = int(m.group(3));
             result["Chars_Wrong"] = int(m.group(2));
 
+    logging.debug("OCR parameters: " + str(result))
+
     return result;
 
 # Setup logging
@@ -258,11 +271,18 @@ last_scanner_out = 0
 last_ocr_out = 0
 last_ocr_queue = 0
 last_consumption = 0
+last_info = 0
 
 logging.debug("Starting busy loop")
 while True:
     # Read current prefix
     prefix = readPrefix(dirs["config"], "PREFIX")
+    uid = readUid(dirs["config"], "UID")
+
+    if (time.time() - last_info) >= 600:
+        logging.info("Prefix: " + prefix)
+        logging.info("Uid: " + str(uid))
+        last_info = time.time()
 
     # Process all files coming in from the scanner
     if (time.time() - last_scanner_out) >= 60:
@@ -276,7 +296,7 @@ while True:
             if file_extension != ".pdf":
                 continue
 
-            processScannerFile(dirs["scanner_out"], file, prefix, dirs["ocr_queue"], dirs["archive_raw"])
+            processScannerFile(dirs["scanner_out"], file, prefix, dirs["ocr_queue"], dirs["archive_raw"], uid)
 
         last_scanner_out = time.time()
 
@@ -292,7 +312,7 @@ while True:
             if file_extension != ".pdf":
                 continue
 
-            processOcredFile(dirs["ocr_out"], file, dirs["consumption"], dirs["archive_ocred"])
+            processOcredFile(dirs["ocr_out"], file, dirs["consumption"], dirs["archive_ocred"], uid)
         last_ocr_out = time.time()
 
     # Serve the OCR queue
@@ -308,7 +328,7 @@ while True:
             if file_extension != ".pdf":
                 continue
 
-            serveOcrQueue(dirs["ocr_queue"], file, dirs["ocr_in"])
+            serveOcrQueue(dirs["ocr_queue"], file, dirs["ocr_in"], uid)
         last_ocr_queue = time.time()
 
     # Check for status of all files in the DB
