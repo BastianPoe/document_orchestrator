@@ -177,7 +177,6 @@ def checkStatus(directory):
 
 def serveOcrQueue(directory, filename, ocr_in):
     if len(os.listdir(ocr_in)) > 0:
-        logger.info("OCR Queue is at " + len(os.listdir(ocr_in)))
         return
 
     shutil.move(os.path.join(directory, filename), os.path.join(ocr_in, filename))
@@ -255,55 +254,68 @@ for index in dirs:
 logging.debug("Initializing SQLite DB")
 connection = openDatabase(dirs["config"])
 
+last_scanner_out = 0
+last_ocr_out = 0
+last_ocr_queue = 0
+last_consumption = 0
+
 logging.debug("Starting busy loop")
 while True:
-    logging.debug("Looping")
-
     # Read current prefix
     prefix = readPrefix(dirs["config"], "PREFIX")
 
     # Process all files coming in from the scanner
-    files = os.listdir(dirs["scanner_out"])
-    for file in files:
-        if not os.path.isfile(os.path.join(dirs["scanner_out"], file)):
-            continue
+    if (time.time() - last_scanner_out) >= 60:
+        logging.debug("Processing " + dirs["scanner_out"])
+        files = os.listdir(dirs["scanner_out"])
+        for file in files:
+            if not os.path.isfile(os.path.join(dirs["scanner_out"], file)):
+                continue
 
-        filename, file_extension = os.path.splitext(file)
-        if file_extension != ".pdf":
-            continue
+            filename, file_extension = os.path.splitext(file)
+            if file_extension != ".pdf":
+                continue
 
-        processScannerFile(dirs["scanner_out"], file, prefix, dirs["ocr_queue"], dirs["archive_raw"])
+            processScannerFile(dirs["scanner_out"], file, prefix, dirs["ocr_queue"], dirs["archive_raw"])
 
-        # We put one file into OCR and now wait for it to finish
-        break;
+        last_scanner_out = time.time()
 
     # Process all files coming out of OCR
-    files = os.listdir(dirs["ocr_out"])
-    for file in files:
-        if not os.path.isfile(os.path.join(dirs["ocr_out"], file)):
-            continue
+    if (time.time() - last_ocr_out) >= 5:
+        logging.debug("Processing " + dirs["ocr_out"])
+        files = os.listdir(dirs["ocr_out"])
+        for file in files:
+            if not os.path.isfile(os.path.join(dirs["ocr_out"], file)):
+                continue
 
-        filename, file_extension = os.path.splitext(file)
-        if file_extension != ".pdf":
-            continue
+            filename, file_extension = os.path.splitext(file)
+            if file_extension != ".pdf":
+                continue
 
-        processOcredFile(dirs["ocr_out"], file, dirs["consumption"], dirs["archive_ocred"])
+            processOcredFile(dirs["ocr_out"], file, dirs["consumption"], dirs["archive_ocred"])
+        last_ocr_out = time.time()
 
     # Serve the OCR queue
-    files = os.listdir(dirs["ocr_queue"])
-    for file in files:
-        if not os.path.isfile(os.path.join(dirs["ocr_queue"], file)):
-            continue
+    if (time.time() - last_ocr_queue) >= 5:
+        logging.debug("Processing " + dirs["ocr_queue"])
+        logging.info("OCR Queue is at " + str(len(os.listdir(dirs["ocr_in"]))))
+        files = os.listdir(dirs["ocr_queue"])
+        for file in files:
+            if not os.path.isfile(os.path.join(dirs["ocr_queue"], file)):
+                continue
 
-        filename, file_extension = os.path.splitext(file)
-        if file_extension != ".pdf":
-            continue
+            filename, file_extension = os.path.splitext(file)
+            if file_extension != ".pdf":
+                continue
 
-        serveOcrQueue(dirs["ocr_queue"], file, dirs["ocr_in"])
+            serveOcrQueue(dirs["ocr_queue"], file, dirs["ocr_in"])
+        last_ocr_queue = time.time()
 
     # Check for status of all files in the DB
-    checkStatus(dirs["consumption"])
+    if (time.time() - last_consumption) >= 600:
+        checkStatus(dirs["consumption"])
+        last_consumption = time.time()
 
-    time.sleep(60)
+    time.sleep(1)
 
 closeDatabase(connection)
