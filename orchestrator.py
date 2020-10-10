@@ -168,11 +168,13 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw):
     # Copy to OCR hot folder
     logging.info("Saving to %s", os.path.join(ocr_in, name))
     shutil.copy2(os.path.join(directory, filename), os.path.join(ocr_in, name))
+    os.chmod(os.path.join(ocr_in, name), 0o777)
 
     # Copy to permanent archive
     logging.info("Saving to %s", os.path.join(archive_raw, name))
     shutil.copy2(
         os.path.join(directory, filename), os.path.join(archive_raw, name))
+    os.chmod(os.path.join(archive_raw, name), 0o777)
 
     # Remove input file
     os.unlink(os.path.join(directory, filename))
@@ -184,11 +186,13 @@ def process_ocred_file(directory, filename, consumption, archive_ocred):
     logging.info("Saving to %s", os.path.join(consumption, filename))
     shutil.copy2(
         os.path.join(directory, filename), os.path.join(consumption, filename))
+    os.chmod(os.path.join(consumption, filename), 0o777)
 
     logging.info("Saving to %s", os.path.join(archive_ocred, filename))
     shutil.copy2(
         os.path.join(directory, filename), os.path.join(
             archive_ocred, filename))
+    os.chmod(os.path.join(archive_ocred, filename), 0o777)
 
     # Update database
     hash_ocr = get_hash(os.path.join(directory, filename))
@@ -228,6 +232,7 @@ def serve_ocr_queue(directory, filename, ocr_in):
     logging.info("Starting OCR of %s", filename)
     shutil.move(
         os.path.join(directory, filename), os.path.join(ocr_in, filename))
+    os.chmod(os.path.join(ocr_in, filename), 0o777)
 
     update_status(filename, "ocring")
 
