@@ -111,20 +111,12 @@ def read_prefix(directory, filename):
     return prefix.strip()
 
 
-def read_uid(directory, filename):
-    file_handle = open(os.path.join(directory, filename), "r")
-    uid = int(file_handle.read().strip())
-    file_handle.close()
-    return uid
-
-
 def get_index(directory):
     files = os.listdir(directory)
     return len(files)
 
 
-def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
-                         uid):
+def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw):
     name = None
     index = get_index(archive_raw)
 
@@ -175,33 +167,28 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
 
     # Copy to OCR hot folder
     logging.info("Saving to %s", os.path.join(ocr_in, name))
-    shutil.copyfile(
-        os.path.join(directory, filename), os.path.join(ocr_in, name))
-    os.chown(os.path.join(ocr_in, name), uid, -1)
+    shutil.copy2(os.path.join(directory, filename), os.path.join(ocr_in, name))
 
     # Copy to permanent archive
     logging.info("Saving to %s", os.path.join(archive_raw, name))
-    shutil.copyfile(
+    shutil.copy2(
         os.path.join(directory, filename), os.path.join(archive_raw, name))
-    os.chown(os.path.join(archive_raw, name), uid, -1)
 
     # Remove input file
     os.unlink(os.path.join(directory, filename))
 
 
-def process_ocred_file(directory, filename, consumption, archive_ocred, uid):
+def process_ocred_file(directory, filename, consumption, archive_ocred):
     logging.info("Handling OCRed file %s", filename)
 
     logging.info("Saving to %s", os.path.join(consumption, filename))
-    shutil.copyfile(
+    shutil.copy2(
         os.path.join(directory, filename), os.path.join(consumption, filename))
-    os.chown(os.path.join(consumption, filename), uid, -1)
 
     logging.info("Saving to %s", os.path.join(archive_ocred, filename))
-    shutil.copyfile(
+    shutil.copy2(
         os.path.join(directory, filename), os.path.join(
             archive_ocred, filename))
-    os.chown(os.path.join(archive_ocred, filename), uid, -1)
 
     # Update database
     hash_ocr = get_hash(os.path.join(directory, filename))
@@ -234,14 +221,13 @@ def check_status(directory):
     connection.commit()
 
 
-def serve_ocr_queue(directory, filename, ocr_in, uid):
+def serve_ocr_queue(directory, filename, ocr_in):
     if len(os.listdir(ocr_in)) > 0:
         return
 
     logging.info("Starting OCR of %s", filename)
     shutil.move(
         os.path.join(directory, filename), os.path.join(ocr_in, filename))
-    os.chown(os.path.join(ocr_in, filename), uid, -1)
 
     update_status(filename, "ocring")
 
@@ -335,11 +321,9 @@ def main():
     while True:
         # Read current prefix
         prefix = read_prefix(dirs["config"], "PREFIX")
-        uid = read_uid(dirs["config"], "UID")
 
         if (time.time() - last_info) >= 600:
             logging.info("Prefix: %s", prefix)
-            logging.info("Uid: %i", uid)
             last_info = time.time()
 
         # Process all files coming in from the scanner
@@ -355,8 +339,7 @@ def main():
                     continue
 
                 process_scanner_file(dirs["scanner_out"], file, prefix,
-                                     dirs["ocr_queue"], dirs["archive_raw"],
-                                     uid)
+                                     dirs["ocr_queue"], dirs["archive_raw"])
 
             last_scanner_out = time.time()
 
@@ -373,7 +356,7 @@ def main():
                     continue
 
                 process_ocred_file(dirs["ocr_out"], file, dirs["consumption"],
-                                   dirs["archive_ocred"], uid)
+                                   dirs["archive_ocred"])
             last_ocr_out = time.time()
 
         # Serve the OCR queue
@@ -389,7 +372,7 @@ def main():
                 if file_extension != ".pdf":
                     continue
 
-                serve_ocr_queue(dirs["ocr_queue"], file, dirs["ocr_in"], uid)
+                serve_ocr_queue(dirs["ocr_queue"], file, dirs["ocr_in"])
             last_ocr_queue = time.time()
 
         # Check for status of all files in the DB
