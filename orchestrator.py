@@ -8,6 +8,7 @@ import re
 import shutil
 import sqlite3
 import hashlib
+import glob
 
 DB_CONNECTION = None
 
@@ -25,6 +26,7 @@ def open_database(config):
     global DB_CONNECTION
 
     connection = sqlite3.connect(os.path.join(config, 'documents.db'))
+
     cursor = connection.cursor()
     cursor.execute('''CREATE TABLE IF NOT EXISTS documents (
             name TEXT UNIQUE,
@@ -39,6 +41,14 @@ def open_database(config):
             ocr_warnings INTEGER,
             ocr_chars_total INTEGER,
             ocr_chars_wrong INTEGER
+            )''')
+    connection.commit()
+
+    cursor = connection.cursor()
+    cursor.execute('''CREATE TABLE IF NOT EXISTS document_logs (
+            name TEXT,
+            timestamp TEXT,
+            log TEXT
             )''')
     connection.commit()
 
@@ -101,6 +111,15 @@ def update_status(name, status):
     cursor.execute(
         'UPDATE documents SET status=?, last_update=datetime("now") WHERE name=?',
         (status, name))
+    connection.commit()
+
+
+def save_log(name, log):
+    connection = get_database()
+    cursor = connection.cursor()
+    cursor.execute(
+        'INSERT INTO document_logs (name, timestamp, log) VALUES (?, datetime("now"), ?)',
+        (name, log))
     connection.commit()
 
 
@@ -199,10 +218,19 @@ def process_ocred_file(directory, filename, consumption, archive_ocred):
     add_ocr_hash(filename, hash_ocr)
 
     # Read and save OCR parameters
-    if os.path.isfile(os.path.join(directory, "Hot Folder Log.txt")):
-        values = parse_ocr_log(directory, "Hot Folder Log.txt")
+    HFL = glob.glob(os.path.join(directory, "Hot Folder Log*.txt"))
+    if len(HFL) > 1:
+        logging.error(
+            "Found %i Hot Folder Log Files: %s. Deleting all, parsing none.",
+            len(HFL), str(HFL))
+        for file in HFL:
+            os.unlink(file)
+
+    if len(HFL) == 1:
+        logging.debug("Parsing %s", HFL[0])
+        values = parse_ocr_log(directory, os.path.basename(HFL[0]))
         add_ocr_parameters(filename, values)
-        os.unlink(os.path.join(directory, "Hot Folder Log.txt"))
+        os.unlink(HFL[0])
 
     # Remove input file
     os.unlink(os.path.join(directory, filename))
@@ -242,6 +270,7 @@ def parse_ocr_log(directory, filename):
     regex_time = r"^Erkennungszeit:[ \t]*([0-9]+) Stunden ([0-9]+) Minuten ([0-9]+) Sekunden.$"
     regex_error = r"^Fehler/Warnungen:[ \t]*([0-9]+) / ([0-9]+).$"
     regex_quali = r"^Nicht eindeutige Zeichen:[ \t]*([0-9]+) % \(([0-9]+) / ([0-9]+)\).$"
+    regex_reason = r"^[0-9\., :\t]+Fehler: (.*)$"
 
     path = os.path.join(directory, filename)
 
@@ -255,7 +284,9 @@ def parse_ocr_log(directory, filename):
         "Errors": None,
         "Warnings": None,
         "Chars_Total": None,
-        "Chars_Wrong": None
+        "Chars_Wrong": None,
+        "Error_Message": None,
+        "Successful": True,
     }
 
     for line in content:
@@ -278,6 +309,11 @@ def parse_ocr_log(directory, filename):
             result["Chars_Total"] = int(matches.group(3))
             result["Chars_Wrong"] = int(matches.group(2))
 
+        matches = re.match(regex_reason, line)
+        if matches is not None:
+            result["Successful"] = False
+            result["Error_Message"] = matches.group(1)
+
     logging.debug("OCR parameters: %s", str(result))
 
     return result
@@ -296,6 +332,7 @@ def main():
         "ocr_queue": "02_ocr_queue",
         "ocr_in": "03_ocr_in",
         "ocr_out": "04_ocr_out",
+        "ocr_fail": "04_ocr_fail",
         "consumption": "05_paperless_in",
         "storage": "06_paperless_storage",
         "archive_ocred": "archive_ocr",
@@ -332,7 +369,7 @@ def main():
             last_info = time.time()
 
         # Process all files coming in from the scanner
-        if (time.time() - last_scanner_out) >= 60:
+        if (time.time() - last_scanner_out) >= 6:
             logging.debug("Processing %s", dirs["scanner_out"])
             files = os.listdir(dirs["scanner_out"])
             for file in files:
@@ -351,17 +388,50 @@ def main():
         # Process all files coming out of OCR
         if (time.time() - last_ocr_out) >= 5:
             logging.debug("Processing %s", dirs["ocr_out"])
-            files = os.listdir(dirs["ocr_out"])
-            for file in files:
-                if not os.path.isfile(os.path.join(dirs["ocr_out"], file)):
-                    continue
 
+            files = glob.glob(os.path.join(dirs["ocr_out"], "*.pdf"))
+            for fullfile in files:
+                file = os.path.basename(fullfile)
                 filename, file_extension = os.path.splitext(file)
-                if file_extension != ".pdf":
-                    continue
-
                 process_ocred_file(dirs["ocr_out"], file, dirs["consumption"],
                                    dirs["archive_ocred"])
+
+            files = glob.glob(
+                os.path.join(dirs["ocr_out"], "Hot Folder Log*.txt"))
+            for fullfile in files:
+                file = os.path.basename(fullfile)
+                filename, file_extension = os.path.splitext(file)
+                logging.error("Found stale file %s in %s. Parsing", file,
+                              dirs["ocr_out"])
+
+                stats = parse_ocr_log(dirs["ocr_out"], file)
+                os.unlink(os.path.join(dirs["ocr_out"], file))
+
+                if stats["Successful"]:
+                    logging.info("OCR was successful, deleted stale log")
+                    continue
+
+                # OCR seems to have failed - update status and move away file
+                failed_ocr = glob.glob(os.path.join(dirs["ocr_in"], "*.pdf"))
+                if len(failed_ocr) == 0:
+                    logging.error("Failed OCR: Input vanished, deleting log")
+                    os.unlink(os.path.join(dirs["ocr_out"], file))
+                elif len(failed_ocr) == 1:
+                    filename = os.path.basename(failed_ocr[0])
+                    logging.error("OCR for %s failed with %s, moving to %s",
+                                  filename, stats["Error_Message"],
+                                  dirs["ocr_fail"])
+                    shutil.move(failed_ocr[0],
+                                os.path.join(dirs["ocr_fail"], filename))
+                    os.chmod(os.path.join(dirs["ocr_fail"], filename), 0o777)
+
+                    update_status(filename, "ocr_failed")
+                    save_log(filename, stats["Error_Message"])
+                elif len(failed_ocr) > 1:
+                    logging.error(
+                        "Failed OCR: Multiple OCR files in queue, aborting (%s)",
+                        str(failed_ocr))
+                    time.sleep(86400)
             last_ocr_out = time.time()
 
         # Serve the OCR queue
