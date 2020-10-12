@@ -211,7 +211,7 @@ def preserve_hfl(filename, hfl):
 
     shutil.move(hfl, os.path.join("logs", preserve_name))
     os.chmod(os.path.join("logs", preserve_name), 0o777)
-   
+
     logging.debug("preserve done")
 
 
@@ -271,7 +271,7 @@ def check_status(directory):
 
 def serve_ocr_queue(directory, filename, ocr_in):
     if len(os.listdir(ocr_in)) > 0:
-        return
+        return False
 
     logging.info("Starting OCR of %s", filename)
     shutil.move(
@@ -279,6 +279,8 @@ def serve_ocr_queue(directory, filename, ocr_in):
     os.chmod(os.path.join(ocr_in, filename), 0o777)
 
     update_status(filename, "ocring")
+
+    return True
 
 
 def parse_ocr_log(directory, filename):
@@ -366,7 +368,6 @@ def main():
         filename=os.path.join(dirs["logs"], "orchestrator.log"))
     logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
-
     # Setup database
     logging.debug("Initializing SQLite DB")
     connection = open_database(dirs["config"])
@@ -376,6 +377,7 @@ def main():
     last_ocr_queue = 0
     last_consumption = 0
     last_info = 0
+    last_ocr_in = None
 
     logging.debug("Starting busy loop")
     while True:
@@ -413,6 +415,7 @@ def main():
                 filename, file_extension = os.path.splitext(file)
                 process_ocred_file(dirs["ocr_out"], file, dirs["consumption"],
                                    dirs["archive_ocred"])
+                last_ocr_in = None
 
             files = glob.glob(
                 os.path.join(dirs["ocr_out"], "Hot Folder Log*.txt"))
@@ -423,7 +426,8 @@ def main():
                               dirs["ocr_out"])
 
                 stats = parse_ocr_log(dirs["ocr_out"], file)
-                preserve_hfl("stale_" + str(time.time()), os.path.join(dirs["ocr_out"], file))
+                preserve_hfl("stale_" + str(time.time()),
+                             os.path.join(dirs["ocr_out"], file))
 
                 if stats["Successful"]:
                     logging.info("OCR was successful, deleted stale log")
@@ -442,6 +446,8 @@ def main():
                                 os.path.join(dirs["ocr_fail"], filename))
                     os.chmod(os.path.join(dirs["ocr_fail"], filename), 0o777)
 
+                    last_ocr_in = None
+
                     update_status(filename, "ocr_failed")
                     save_log(filename, stats["Error_Message"])
                 elif len(failed_ocr) > 1:
@@ -454,7 +460,12 @@ def main():
         # Serve the OCR queue
         if (time.time() - last_ocr_queue) >= 5:
             logging.debug("Processing %s", dirs["ocr_queue"])
-            logging.info("OCR Queue is at %i", len(os.listdir(dirs["ocr_in"])))
+            if last_ocr_in != None:
+                duration = time.time() - last_ocr_in
+            else:
+                duration = -1
+            logging.info("OCR Queue is at %i since %i s",
+                         len(os.listdir(dirs["ocr_in"])), duration)
             files = os.listdir(dirs["ocr_queue"])
             for file in files:
                 if not os.path.isfile(os.path.join(dirs["ocr_queue"], file)):
@@ -464,7 +475,10 @@ def main():
                 if file_extension != ".pdf":
                     continue
 
-                serve_ocr_queue(dirs["ocr_queue"], file, dirs["ocr_in"])
+                ret = serve_ocr_queue(dirs["ocr_queue"], file, dirs["ocr_in"])
+
+                if ret == True:
+                    last_ocr_in = time.time()
             last_ocr_queue = time.time()
 
         # Check for status of all files in the DB
@@ -473,6 +487,12 @@ def main():
             last_consumption = time.time()
 
         time.sleep(1)
+
+        # Check for OCR timeout
+        if (last_ocr_in != None) and (time.time() - last_ocr_in) >= 1200:
+            logging.error("OCR lasts for %is, something is wrong",
+                          (time.time() - last_ocr_in))
+            last_ocr_in = time.time()
 
     close_database(connection)
 
