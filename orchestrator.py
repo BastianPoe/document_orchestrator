@@ -418,7 +418,6 @@ def main():
                 failed_ocr = glob.glob(os.path.join(dirs["ocr_in"], "*.pdf"))
                 if len(failed_ocr) == 0:
                     logging.error("Failed OCR: Input vanished, deleting log")
-                    os.unlink(os.path.join(dirs["ocr_out"], file))
                 elif len(failed_ocr) == 1:
                     filename = os.path.basename(failed_ocr[0])
                     logging.error("OCR for %s failed with %s, moving to %s",
