@@ -1,6 +1,7 @@
 #!/usr/bin/python3
 # coding=utf8
 
+import sys
 import os
 import logging
 import time
@@ -320,12 +321,6 @@ def parse_ocr_log(directory, filename):
 
 
 def main():
-    # Setup logging
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)s %(message)s',
-        datefmt='%d.%m.%Y %H:%M:%S',
-        level=logging.DEBUG)
-
     # Directory config
     dirs = {
         "scanner_out": "01_scanner_out",
@@ -337,17 +332,25 @@ def main():
         "storage": "06_paperless_storage",
         "archive_ocred": "archive_ocr",
         "archive_raw": "archive_raw",
-        "config": "config"
+        "config": "config",
+        "logs": "logs"
     }
 
-    logging.info("Creating working directories")
     for index in dirs:
         try:
             os.mkdir(dirs[index])
         except OSError:  # FileExistsError:
             # Don't care
             continue
-        logging.info("Created %s", dirs[index])
+
+    # Configure logging
+    logging.basicConfig(
+        format='%(asctime)s %(levelname)s %(message)s',
+        datefmt='%d.%m.%Y %H:%M:%S',
+        level=logging.DEBUG,
+        filename=os.path.join(dirs["logs"], "orchestrator.log"))
+    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+
 
     # Setup database
     logging.debug("Initializing SQLite DB")
