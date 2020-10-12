@@ -200,6 +200,21 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw):
     os.unlink(os.path.join(directory, filename))
 
 
+def preserve_hfl(filename, hfl):
+    logging.debug("preserve_hfl(%s, %s)", filename, hfl)
+
+    real_hfl = os.path.basename(hfl)
+    filename, file_extension = os.path.splitext(filename)
+
+    preserve_name = filename + "_" + real_hfl
+    logging.debug("preserve_name = %s", preserve_name)
+
+    shutil.move(hfl, os.path.join("logs", preserve_name))
+    os.chmod(os.path.join("logs", preserve_name), 0o777)
+   
+    logging.debug("preserve done")
+
+
 def process_ocred_file(directory, filename, consumption, archive_ocred):
     logging.info("Handling OCRed file %s", filename)
 
@@ -225,13 +240,13 @@ def process_ocred_file(directory, filename, consumption, archive_ocred):
             "Found %i Hot Folder Log Files: %s. Deleting all, parsing none.",
             len(HFL), str(HFL))
         for file in HFL:
-            os.unlink(file)
+            preserve_hfl(filename, file)
 
     if len(HFL) == 1:
         logging.debug("Parsing %s", HFL[0])
         values = parse_ocr_log(directory, os.path.basename(HFL[0]))
         add_ocr_parameters(filename, values)
-        os.unlink(HFL[0])
+        preserve_hfl(filename, HFL[0])
 
     # Remove input file
     os.unlink(os.path.join(directory, filename))
@@ -408,7 +423,7 @@ def main():
                               dirs["ocr_out"])
 
                 stats = parse_ocr_log(dirs["ocr_out"], file)
-                os.unlink(os.path.join(dirs["ocr_out"], file))
+                preserve_hfl("stale_" + str(time.time()), os.path.join(dirs["ocr_out"], file))
 
                 if stats["Successful"]:
                     logging.info("OCR was successful, deleted stale log")
