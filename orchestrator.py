@@ -263,8 +263,6 @@ def check_status(directory):
         if not os.path.isfile(os.path.join(directory, filename)):
             logging.info("%s appears to have been consumed", filename)
             update_status(filename, "consumed")
-        else:
-            logging.info("%s has not yet been consumed", filename)
 
     connection.commit()
 
@@ -390,7 +388,7 @@ def main():
 
         # Process all files coming in from the scanner
         if (time.time() - last_scanner_out) >= 6:
-            logging.debug("Processing %s", dirs["scanner_out"])
+            # logging.debug("Processing %s", dirs["scanner_out"])
             files = os.listdir(dirs["scanner_out"])
             for file in files:
                 if not os.path.isfile(os.path.join(dirs["scanner_out"], file)):
@@ -407,7 +405,7 @@ def main():
 
         # Process all files coming out of OCR
         if (time.time() - last_ocr_out) >= 5:
-            logging.debug("Processing %s", dirs["ocr_out"])
+            # logging.debug("Processing %s", dirs["ocr_out"])
 
             files = glob.glob(os.path.join(dirs["ocr_out"], "*.pdf"))
             for fullfile in files:
@@ -458,8 +456,8 @@ def main():
             last_ocr_out = time.time()
 
         # Serve the OCR queue
-        if (time.time() - last_ocr_queue) >= 5:
-            logging.debug("Processing %s", dirs["ocr_queue"])
+        if (time.time() - last_ocr_queue) >= 30:
+            # logging.debug("Processing %s", dirs["ocr_queue"])
             if last_ocr_in != None:
                 duration = time.time() - last_ocr_in
             else:
