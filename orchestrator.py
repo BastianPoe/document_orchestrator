@@ -218,6 +218,12 @@ def preserve_hfl(filename, hfl):
 def process_ocred_file(directory, filename, consumption, archive_ocred):
     logging.info("Handling OCRed file %s", filename)
 
+    logging.info("Waiting for OCR Log to appear...")
+    path = os.path.join(directory, "Hot Folder Log*.txt")
+    while len(glob.glob(path)) < 1:
+        logging.debug("OCR Logs: %s", str(glob.glob(path)))
+        time.sleep(10)
+
     logging.info("Saving to %s", os.path.join(consumption, filename))
     shutil.copy2(
         os.path.join(directory, filename), os.path.join(consumption, filename))
