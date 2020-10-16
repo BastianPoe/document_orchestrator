@@ -179,7 +179,21 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
             matches.group(6)
         ]
         name = "-".join(name_list) + ".pdf"
-    
+
+    regex_heuristic = r"([0-9]{4})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2}).*\.pdf$"
+    matches = re.match(regex_heuristic, filename)
+    if name is None and matches is not None:
+        name_list = [
+            prefix, "{:05d}".format(index),
+            matches.group(1),
+            matches.group(2),
+            matches.group(3),
+            matches.group(4),
+            matches.group(5),
+            matches.group(6)
+        ]
+        name = "-".join(name_list) + ".pdf"
+
     if name is None:
         logging.error("Unable to parse %s, moving to %s!", filename, fail)
 
