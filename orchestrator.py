@@ -503,7 +503,7 @@ def main():
 
                 ret = serve_ocr_queue(dirs["ocr_queue"], file, dirs["ocr_in"])
 
-                if ret == True:
+                if ret:
                     last_ocr_in = time.time()
             last_ocr_queue = time.time()
 
