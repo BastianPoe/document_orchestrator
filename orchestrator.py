@@ -240,19 +240,19 @@ def process_ocred_file(directory, filename, consumption, archive_ocred):
     add_ocr_hash(filename, hash_ocr)
 
     # Read and save OCR parameters
-    HFL = glob.glob(os.path.join(directory, "Hot Folder Log*.txt"))
-    if len(HFL) > 1:
+    hot_folder_log = glob.glob(os.path.join(directory, "Hot Folder Log*.txt"))
+    if len(hot_folder_log) > 1:
         logging.error(
             "Found %i Hot Folder Log Files: %s. Deleting all, parsing none.",
-            len(HFL), str(HFL))
-        for file in HFL:
+            len(hot_folder_log), str(hot_folder_log))
+        for file in hot_folder_log:
             preserve_hfl(filename, file)
 
-    if len(HFL) == 1:
-        logging.debug("Parsing %s", HFL[0])
-        values = parse_ocr_log(directory, os.path.basename(HFL[0]))
+    if len(hot_folder_log) == 1:
+        logging.debug("Parsing %s", hot_folder_log[0])
+        values = parse_ocr_log(directory, os.path.basename(hot_folder_log[0]))
         add_ocr_parameters(filename, values)
-        preserve_hfl(filename, HFL[0])
+        preserve_hfl(filename, hot_folder_log[0])
 
     # Remove input file
     os.unlink(os.path.join(directory, filename))
