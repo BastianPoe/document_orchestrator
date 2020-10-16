@@ -115,6 +115,15 @@ def update_status(name, status):
     connection.commit()
 
 
+def update_status_by_original_hash(hash_original, status):
+    connection = get_database()
+    cursor = connection.cursor()
+    cursor.execute(
+        'UPDATE documents SET status=?, last_update=datetime("now") WHERE hash_original=?',
+        (status, hash_original))
+    connection.commit()
+
+
 def save_log(name, log):
     connection = get_database()
     cursor = connection.cursor()
@@ -136,7 +145,8 @@ def get_index(directory):
     return len(files)
 
 
-def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw):
+def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
+                         fail):
     name = None
     index = get_index(archive_raw)
 
@@ -173,16 +183,18 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw):
     # Update Database
     hash_value = get_hash(os.path.join(directory, filename))
 
-    if name is None:
-        logging.error("Unable to parse %s, stopping processing!", filename)
-        if not add_document(filename, name, hash_value, 'name error'):
-            logging.error("%s already present, deleting", filename)
-            os.unlink(os.path.join(directory, filename))
-        return
-
-    if not add_document(filename, name, hash_value, 'new'):
+    if not add_document(filename, name, hash_value, "new"):
         logging.error("%s already present, deleting", filename)
         os.unlink(os.path.join(directory, filename))
+        return
+
+    if name is None:
+        logging.error("Unable to parse %s, moving to %s!", filename, fail)
+        update_status_by_original_hash(hash_value, "name error")
+
+        shutil.move(
+            os.path.join(directory, filename), os.path.join(fail, filename))
+        os.chmod(os.path.join(fail, filename), 0o777)
         return
 
     # Copy to OCR hot folder
@@ -341,10 +353,37 @@ def parse_ocr_log(directory, filename):
     return result
 
 
+def cleanup_ocr_in(ocr_in, ocr_fail, error=None):
+    # OCR seems to have failed - update status and move away file
+    failed_ocr = glob.glob(os.path.join(ocr_in, "*.pdf"))
+    if len(failed_ocr) == 0:
+        logging.error("Failed OCR: Input vanished, deleting log")
+        return True
+
+    if len(failed_ocr) == 1:
+        filename = os.path.basename(failed_ocr[0])
+        logging.error("OCR for %s failed with %s, moving to %s", filename,
+                      error, ocr_fail)
+        shutil.move(failed_ocr[0], os.path.join(ocr_fail, filename))
+        os.chmod(os.path.join(ocr_fail, filename), 0o777)
+
+        update_status(filename, "ocr_failed")
+        save_log(filename, error)
+        return True
+
+    if len(failed_ocr) > 1:
+        logging.error("Failed OCR: Multiple OCR files in queue, aborting (%s)",
+                      str(failed_ocr))
+        time.sleep(86400)
+
+    return False
+
+
 def main():
     # Directory config
     dirs = {
         "scanner_out": "01_scanner_out",
+        "parse_fail": "01_scanner_fail",
         "ocr_queue": "02_ocr_queue",
         "ocr_in": "03_ocr_in",
         "ocr_out": "04_ocr_out",
@@ -381,7 +420,7 @@ def main():
     last_ocr_queue = 0
     last_consumption = 0
     last_info = 0
-    last_ocr_in = None
+    last_ocr_in = time.time()
 
     logging.debug("Starting busy loop")
     while True:
@@ -405,7 +444,8 @@ def main():
                     continue
 
                 process_scanner_file(dirs["scanner_out"], file, prefix,
-                                     dirs["ocr_queue"], dirs["archive_raw"])
+                                     dirs["ocr_queue"], dirs["archive_raw"],
+                                     dirs["parse_fail"])
 
             last_scanner_out = time.time()
 
@@ -433,38 +473,20 @@ def main():
                 preserve_hfl("stale_" + str(time.time()),
                              os.path.join(dirs["ocr_out"], file))
 
+                last_ocr_in = None
+
                 if stats["Successful"]:
                     logging.info("OCR was successful, deleted stale log")
                     continue
 
-                # OCR seems to have failed - update status and move away file
-                failed_ocr = glob.glob(os.path.join(dirs["ocr_in"], "*.pdf"))
-                if len(failed_ocr) == 0:
-                    logging.error("Failed OCR: Input vanished, deleting log")
-                elif len(failed_ocr) == 1:
-                    filename = os.path.basename(failed_ocr[0])
-                    logging.error("OCR for %s failed with %s, moving to %s",
-                                  filename, stats["Error_Message"],
-                                  dirs["ocr_fail"])
-                    shutil.move(failed_ocr[0],
-                                os.path.join(dirs["ocr_fail"], filename))
-                    os.chmod(os.path.join(dirs["ocr_fail"], filename), 0o777)
-
-                    last_ocr_in = None
-
-                    update_status(filename, "ocr_failed")
-                    save_log(filename, stats["Error_Message"])
-                elif len(failed_ocr) > 1:
-                    logging.error(
-                        "Failed OCR: Multiple OCR files in queue, aborting (%s)",
-                        str(failed_ocr))
-                    time.sleep(86400)
+                cleanup_ocr_in(dirs["ocr_in"], dirs["ocr_fail"],
+                               stats["Error_Message"])
             last_ocr_out = time.time()
 
         # Serve the OCR queue
         if (time.time() - last_ocr_queue) >= 30:
             # logging.debug("Processing %s", dirs["ocr_queue"])
-            if last_ocr_in != None:
+            if last_ocr_in is not None:
                 duration = time.time() - last_ocr_in
             else:
                 duration = -1
@@ -493,11 +515,19 @@ def main():
         time.sleep(1)
 
         # Check for OCR timeout
-        if (last_ocr_in != None) and (time.time() - last_ocr_in) >= 1200:
-            logging.error("OCR lasts for %is, something is wrong",
+        if (last_ocr_in is not None) and len(os.listdir(
+                dirs["ocr_in"])) > 0 and (time.time() - last_ocr_in) >= 3600:
+            logging.error("OCR timed out after %i, moving to fails",
                           (time.time() - last_ocr_in))
-            last_ocr_in = time.time()
 
+            # Remove files from ocr_in
+            cleanup_ocr_in(dirs["ocr_in"], dirs["ocr_fail"], "ocr timeout")
+
+            # Make sure that queue is considered empty
+            last_ocr_in = None
+
+            # Make sure that the OCR queue is served right away to avoid delays
+            last_ocr_queue = 0
     close_database(connection)
 
 
