@@ -179,6 +179,14 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
             matches.group(6)
         ]
         name = "-".join(name_list) + ".pdf"
+    
+    if name is None:
+        logging.error("Unable to parse %s, moving to %s!", filename, fail)
+
+        shutil.move(
+            os.path.join(directory, filename), os.path.join(fail, filename))
+        os.chmod(os.path.join(fail, filename), 0o777)
+        return
 
     # Update Database
     hash_value = get_hash(os.path.join(directory, filename))
@@ -186,15 +194,6 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
     if not add_document(filename, name, hash_value, "new"):
         logging.error("%s already present, deleting", filename)
         os.unlink(os.path.join(directory, filename))
-        return
-
-    if name is None:
-        logging.error("Unable to parse %s, moving to %s!", filename, fail)
-        update_status_by_original_hash(hash_value, "name error")
-
-        shutil.move(
-            os.path.join(directory, filename), os.path.join(fail, filename))
-        os.chmod(os.path.join(fail, filename), 0o777)
         return
 
     # Copy to OCR hot folder
