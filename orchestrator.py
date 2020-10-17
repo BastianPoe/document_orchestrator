@@ -145,8 +145,13 @@ def get_index(directory):
     return len(files)
 
 
-def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
-                         fail):
+def process_scanner_file(directory,
+                         filename,
+                         prefix,
+                         ocr_in,
+                         archive_raw,
+                         fail,
+                         suffix=None):
     name = None
     index = get_index(archive_raw)
 
@@ -162,7 +167,7 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
             matches.group(3),
             matches.group(4),
             matches.group(5),
-            matches.group(6)
+            matches.group(6), suffix
         ]
         name = "-".join(name_list) + ".pdf"
 
@@ -176,7 +181,7 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
             matches.group(3),
             matches.group(4),
             matches.group(5),
-            matches.group(6)
+            matches.group(6), suffix
         ]
         name = "-".join(name_list) + ".pdf"
 
@@ -190,7 +195,7 @@ def process_scanner_file(directory, filename, prefix, ocr_in, archive_raw,
             matches.group(3),
             matches.group(4),
             matches.group(5),
-            matches.group(6)
+            matches.group(6), suffix
         ]
         name = "-".join(name_list) + ".pdf"
 
@@ -381,6 +386,8 @@ def main():
     # Directory config
     dirs = {
         "scanner_out": "01_scanner_out",
+        "mobile_out": "01_mobile_out",
+        "email_out": "01_email_out",
         "parse_fail": "01_scanner_fail",
         "ocr_queue": "02_ocr_queue",
         "ocr_in": "03_ocr_in",
@@ -432,18 +439,29 @@ def main():
         # Process all files coming in from the scanner
         if (time.time() - last_scanner_out) >= 6:
             # logging.debug("Processing %s", dirs["scanner_out"])
-            files = os.listdir(dirs["scanner_out"])
-            for file in files:
-                if not os.path.isfile(os.path.join(dirs["scanner_out"], file)):
-                    continue
+            files = glob.glob(os.path.join(dirs["scanner_out"], "*.pdf"))
+            for fullfile in files:
+                filename = os.path.basename(fullfile)
 
-                filename, file_extension = os.path.splitext(file)
-                if file_extension != ".pdf":
-                    continue
-
-                process_scanner_file(dirs["scanner_out"], file, prefix,
+                process_scanner_file(dirs["scanner_out"], filename, prefix,
                                      dirs["ocr_queue"], dirs["archive_raw"],
-                                     dirs["parse_fail"])
+                                     dirs["parse_fail"], "scanner")
+
+            files = glob.glob(os.path.join(dirs["mobile_out"], "*.pdf"))
+            for fullfile in files:
+                filename = os.path.basename(fullfile)
+
+                process_scanner_file(dirs["mobile_out"], filename, None,
+                                     dirs["ocr_queue"], dirs["archive_raw"],
+                                     dirs["parse_fail"], "mobile")
+
+            files = glob.glob(os.path.join(dirs["email_out"], "*.pdf"))
+            for fullfile in files:
+                filename = os.path.basename(fullfile)
+
+                process_scanner_file(dirs["email_out"], filename, None,
+                                     dirs["ocr_queue"], dirs["archive_raw"],
+                                     dirs["parse_fail"], "email")
 
             last_scanner_out = time.time()
 
