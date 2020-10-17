@@ -10,6 +10,7 @@ import sqlite3
 import hashlib
 import glob
 from datetime import datetime
+import subprocess
 
 DB_CONNECTION = None
 
@@ -452,6 +453,7 @@ def main():
     last_ocr_queue = 0
     last_consumption = 0
     last_info = 0
+    last_email = 0
     last_ocr_in = time.time()
 
     logging.debug("Starting busy loop")
@@ -571,6 +573,31 @@ def main():
 
             # Make sure that the OCR queue is served right away to avoid delays
             last_ocr_queue = 0
+
+        if (time.time() - last_email) >= 600:
+            # attachment-downloader --host="${SERVER}" --username="${USER}" --password="${PASS}" --output="01_email_out" --imap-folder="${FOLDER}" --delete
+            email_server = os.environ.get("EMAIL_SERVER")
+            email_user = os.environ.get("EMAIL_USER")
+            email_pass = os.environ.get("EMAIL_PASS")
+            email_folder = os.environ.get("EMAIL_FOLDER")
+
+            if email_folder is None:
+                email_folder = "INBOX"
+
+            if email_server is None or email_user is None or email_pass is None:
+                logging.info(
+                    "Fetching emails is not configured, please set EMAIL_SERVER, EMAIL_USER and EMAIL_PASS"
+                )
+            else:
+                subprocess.call([
+                    "attachment-downloader", "--host", email_server,
+                    "--username", email_user, "--password", email_pass,
+                    "--output", dirs["email_out"], "--imap-folder",
+                    email_folder, "--delete"
+                ])
+
+            last_email = time.time()
+
     close_database(connection)
 
 
