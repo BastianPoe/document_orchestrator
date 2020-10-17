@@ -1,7 +1,6 @@
 #!/usr/bin/python3
 # coding=utf8
 
-import sys
 import os
 import logging
 import time
@@ -434,8 +433,11 @@ def main():
         format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%d.%m.%Y %H:%M:%S',
         level=logging.DEBUG,
-        filename=os.path.join(dirs["logs"], "orchestrator.log"))
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+        handlers=[
+            logging.FileHandler(
+                os.path.join(dirs["logs"], "orchestrator.log")),
+            logging.StreamHandler()
+        ])
 
     # Setup database
     logging.debug("Initializing SQLite DB")
