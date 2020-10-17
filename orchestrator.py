@@ -10,6 +10,7 @@ import shutil
 import sqlite3
 import hashlib
 import glob
+from datetime import datetime
 
 DB_CONNECTION = None
 
@@ -151,6 +152,7 @@ def process_scanner_file(directory,
                          ocr_in,
                          archive_raw,
                          fail,
+                         strict=True,
                          suffix=None):
     name = None
     index = get_index(archive_raw)
@@ -200,12 +202,31 @@ def process_scanner_file(directory,
         name = "-".join(name_list) + ".pdf"
 
     if name is None:
-        logging.error("Unable to parse %s, moving to %s!", filename, fail)
+        if strict:
+            logging.error("Unable to parse %s, moving to %s!", filename, fail)
 
-        shutil.move(
-            os.path.join(directory, filename), os.path.join(fail, filename))
-        os.chmod(os.path.join(fail, filename), 0o777)
-        return
+            shutil.move(
+                os.path.join(directory, filename), os.path.join(
+                    fail, filename))
+            os.chmod(os.path.join(fail, filename), 0o777)
+            return
+
+        # Just make up a name as we go along
+        filename_no_ext, file_extension = os.path.splitext(filename)
+
+        now = datetime.now()
+        name_list = [
+            str(prefix), "{:05d}".format(index),
+            now.strftime("%Y"),
+            now.strftime("%m"),
+            now.strftime("%d"),
+            now.strftime("%H"),
+            now.strftime("%M"),
+            now.strftime("%S"), suffix, filename_no_ext
+        ]
+        name = "-".join(name_list) + ".pdf"
+
+        logging.info("Created input file filename %s", name)
 
     # Update Database
     hash_value = get_hash(os.path.join(directory, filename))
@@ -445,7 +466,7 @@ def main():
 
                 process_scanner_file(dirs["scanner_out"], filename, prefix,
                                      dirs["ocr_queue"], dirs["archive_raw"],
-                                     dirs["parse_fail"], "scanner")
+                                     dirs["parse_fail"], True, "scanner")
 
             files = glob.glob(os.path.join(dirs["mobile_out"], "*.pdf"))
             for fullfile in files:
@@ -453,7 +474,7 @@ def main():
 
                 process_scanner_file(dirs["mobile_out"], filename, None,
                                      dirs["ocr_queue"], dirs["archive_raw"],
-                                     dirs["parse_fail"], "mobile")
+                                     dirs["parse_fail"], False, "mobile")
 
             files = glob.glob(os.path.join(dirs["email_out"], "*.pdf"))
             for fullfile in files:
@@ -461,7 +482,7 @@ def main():
 
                 process_scanner_file(dirs["email_out"], filename, None,
                                      dirs["ocr_queue"], dirs["archive_raw"],
-                                     dirs["parse_fail"], "email")
+                                     dirs["parse_fail"], False, "email")
 
             last_scanner_out = time.time()
 
