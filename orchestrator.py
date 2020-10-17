@@ -574,8 +574,7 @@ def main():
             # Make sure that the OCR queue is served right away to avoid delays
             last_ocr_queue = 0
 
-        if (time.time() - last_email) >= 600:
-            # attachment-downloader --host="${SERVER}" --username="${USER}" --password="${PASS}" --output="01_email_out" --imap-folder="${FOLDER}" --delete
+        if last_email is not None and (time.time() - last_email) >= 600:
             email_server = os.environ.get("EMAIL_SERVER")
             email_user = os.environ.get("EMAIL_USER")
             email_pass = os.environ.get("EMAIL_PASS")
@@ -588,6 +587,7 @@ def main():
                 logging.info(
                     "Fetching emails is not configured, please set EMAIL_SERVER, EMAIL_USER and EMAIL_PASS"
                 )
+                last_email = None
             else:
                 subprocess.call([
                     "attachment-downloader", "--host", email_server,
@@ -595,8 +595,7 @@ def main():
                     "--output", dirs["email_out"], "--imap-folder",
                     email_folder, "--delete"
                 ])
-
-            last_email = time.time()
+                last_email = time.time()
 
     close_database(connection)
 
