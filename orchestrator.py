@@ -162,13 +162,14 @@ def process_scanner_file(directory,
     matches = re.match(regex_app, filename)
     if matches is not None:
         name_list = [
-            prefix, "{:05d}".format(index),
+            str(prefix), "{:05d}".format(index),
             matches.group(1),
             matches.group(2),
             matches.group(3),
             matches.group(4),
             matches.group(5),
-            matches.group(6), suffix
+            matches.group(6),
+            str(suffix)
         ]
         name = "-".join(name_list) + ".pdf"
 
@@ -176,13 +177,14 @@ def process_scanner_file(directory,
     matches = re.match(regex_scanner, filename)
     if matches is not None:
         name_list = [
-            prefix, "{:05d}".format(index),
+            str(prefix), "{:05d}".format(index),
             matches.group(1),
             matches.group(2),
             matches.group(3),
             matches.group(4),
             matches.group(5),
-            matches.group(6), suffix
+            matches.group(6),
+            str(suffix)
         ]
         name = "-".join(name_list) + ".pdf"
 
@@ -190,13 +192,14 @@ def process_scanner_file(directory,
     matches = re.match(regex_heuristic, filename)
     if name is None and matches is not None:
         name_list = [
-            prefix, "{:05d}".format(index),
+            str(prefix), "{:05d}".format(index),
             matches.group(1),
             matches.group(2),
             matches.group(3),
             matches.group(4),
             matches.group(5),
-            matches.group(6), suffix
+            matches.group(6),
+            str(suffix)
         ]
         name = "-".join(name_list) + ".pdf"
 
@@ -221,7 +224,8 @@ def process_scanner_file(directory,
             now.strftime("%d"),
             now.strftime("%H"),
             now.strftime("%M"),
-            now.strftime("%S"), suffix, filename_no_ext
+            now.strftime("%S"),
+            str(suffix), filename_no_ext
         ]
         name = "-".join(name_list) + ".pdf"
 
