@@ -73,9 +73,10 @@ def add_document(name_original, name, hash_original, status):
     cursor = connection.cursor()
 
     try:
-        cursor.execute(
-            'INSERT INTO documents (name_original, hash_original, name, status, last_update) VALUES (?, ?, ?, ?, datetime("now"))',
-            (name_original, hash_original, name, status))
+        cursor.execute('''INSERT INTO documents
+                (name_original, hash_original, name, status, last_update)
+                VALUES (?, ?, ?, ?, datetime("now"))''',
+                       (name_original, hash_original, name, status))
     except sqlite3.IntegrityError:
         # Document already present in database
         return False
@@ -87,13 +88,13 @@ def add_document(name_original, name, hash_original, status):
 def add_ocr_hash(name, hash_ocr):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute(
-        'INSERT OR IGNORE INTO documents (name, status, last_update) VALUES (?, ?, datetime("now"))',
-        (name, "new"))
+    cursor.execute('''INSERT OR IGNORE INTO documents
+        (name, status, last_update)
+        VALUES (?, ?, datetime("now"))''', (name, "new"))
     logging.debug("Updating %s with %s", name, hash_ocr)
-    cursor.execute(
-        'UPDATE documents SET hash_ocr=?, status=?, last_update=datetime("now") WHERE name=?',
-        (hash_ocr, "ocred", name))
+    cursor.execute('''UPDATE documents SET
+        hash_ocr=?, status=?, last_update=datetime("now") WHERE name=?''',
+                   (hash_ocr, "ocred", name))
     connection.commit()
 
 
@@ -101,7 +102,9 @@ def add_ocr_parameters(filename, values):
     connection = get_database()
     cursor = connection.cursor()
     cursor.execute(
-        'UPDATE documents SET ocr_pages=?, ocr_time=?, ocr_errors=?, ocr_warnings=?, ocr_chars_total=?, ocr_chars_wrong=? WHERE name=?',
+        '''UPDATE documents SET
+        ocr_pages=?, ocr_time=?, ocr_errors=?, ocr_warnings=?,
+        ocr_chars_total=?, ocr_chars_wrong=? WHERE name=?''',
         (values["Pages"], values["Time"], values["Errors"], values["Warnings"],
          values["Chars_Total"], values["Chars_Wrong"], filename))
     connection.commit()
@@ -110,27 +113,25 @@ def add_ocr_parameters(filename, values):
 def update_status(name, status):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute(
-        'UPDATE documents SET status=?, last_update=datetime("now") WHERE name=?',
-        (status, name))
+    cursor.execute('''UPDATE documents SET
+        status=?, last_update=datetime("now") WHERE name=?''', (status, name))
     connection.commit()
 
 
 def update_status_by_original_hash(hash_original, status):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute(
-        'UPDATE documents SET status=?, last_update=datetime("now") WHERE hash_original=?',
-        (status, hash_original))
+    cursor.execute('''UPDATE documents SET
+        status=?, last_update=datetime("now") WHERE hash_original=?''',
+                   (status, hash_original))
     connection.commit()
 
 
 def save_log(name, log):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute(
-        'INSERT INTO document_logs (name, timestamp, log) VALUES (?, datetime("now"), ?)',
-        (name, log))
+    cursor.execute('''INSERT INTO document_logs
+        (name, timestamp, log) VALUES (?, datetime("now"), ?)''', (name, log))
     connection.commit()
 
 
@@ -159,7 +160,9 @@ def process_scanner_file(directory,
 
     logging.info("Handling scanned file %s", filename)
 
-    regex_app = r"^[a-z]*[\.\-_]{1}([0-9]{2,4})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})\.pdf$"
+    regex_app = r"^[a-z]*[\.\-_]{1}([0-9]{2,4})[\.\-_]{1}([0-9]{1,2})" + \
+            r"[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}" + \
+            r"([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})\.pdf$"
     matches = re.match(regex_app, filename)
     if matches is not None:
         name_list = [
@@ -174,7 +177,8 @@ def process_scanner_file(directory,
         ]
         name = "-".join(name_list) + ".pdf"
 
-    regex_scanner = r"^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})([0-9]{2})_[0-9a-zA-Z]+_[0-9]+\.pdf$"
+    regex_scanner = r"^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})" + \
+            r"([0-9]{2})_[0-9a-zA-Z]+_[0-9]+\.pdf$"
     matches = re.match(regex_scanner, filename)
     if matches is not None:
         name_list = [
@@ -189,7 +193,9 @@ def process_scanner_file(directory,
         ]
         name = "-".join(name_list) + ".pdf"
 
-    regex_heuristic = r"([0-9]{4})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2}).*\.pdf$"
+    regex_heuristic = r"([0-9]{4})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
+            r"[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
+            r".*\.pdf$"
     matches = re.match(regex_heuristic, filename)
     if name is None and matches is not None:
         name_list = [
@@ -585,7 +591,8 @@ def main():
 
             if email_server is None or email_user is None or email_pass is None:
                 logging.info(
-                    "Fetching emails is not configured, please set EMAIL_SERVER, EMAIL_USER and EMAIL_PASS"
+                    "Fetching emails is not configured, please set " + \
+                            "EMAIL_SERVER, EMAIL_USER and EMAIL_PASS"
                 )
                 last_email = None
             else:
