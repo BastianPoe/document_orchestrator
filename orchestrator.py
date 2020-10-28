@@ -437,16 +437,15 @@ def cleanup_ocr_in(ocr_in, ocr_fail, error=None):
 def main():
     # Directory config
     dirs = {
-        "scanner_out": "01_scanner_out",
-        "mobile_out": "01_mobile_out",
-        "email_out": "01_email_out",
-        "parse_fail": "01_scanner_fail",
+        "scanner_in": "01_scanner",
+        "mobile_in": "01_mobile",
+        "email_in": "01_email",
+        "parse_fail": "01_fail",
         "ocr_queue": "02_ocr_queue",
         "ocr_in": "03_ocr_in",
         "ocr_out": "04_ocr_out",
         "ocr_fail": "04_ocr_fail",
-        "consumption": "05_paperless_in",
-        "storage": "06_paperless_storage",
+        "consumption": "05_consumption",
         "archive_ocred": "archive_ocr",
         "archive_raw": "archive_raw",
         "config": "config",
@@ -494,28 +493,28 @@ def main():
 
         # Process all files coming in from the scanner
         if (time.time() - last_scanner_out) >= 6:
-            # logging.debug("Processing %s", dirs["scanner_out"])
-            files = glob.glob(os.path.join(dirs["scanner_out"], "*.pdf"))
+            # logging.debug("Processing %s", dirs["scanner_in"])
+            files = glob.glob(os.path.join(dirs["scanner_in"], "*.pdf"))
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
-                process_scanner_file(dirs["scanner_out"], filename, prefix,
+                process_scanner_file(dirs["scanner_in"], filename, prefix,
                                      dirs["ocr_queue"], dirs["archive_raw"],
                                      dirs["parse_fail"], True, "scanner")
 
-            files = glob.glob(os.path.join(dirs["mobile_out"], "*.pdf"))
+            files = glob.glob(os.path.join(dirs["mobile_in"], "*.pdf"))
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
-                process_scanner_file(dirs["mobile_out"], filename, None,
+                process_scanner_file(dirs["mobile_in"], filename, None,
                                      dirs["ocr_queue"], dirs["archive_raw"],
                                      dirs["parse_fail"], False, "mobile")
 
-            files = glob.glob(os.path.join(dirs["email_out"], "*.pdf"))
+            files = glob.glob(os.path.join(dirs["email_in"], "*.pdf"))
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
-                process_scanner_file(dirs["email_out"], filename, None,
+                process_scanner_file(dirs["email_in"], filename, None,
                                      dirs["ocr_queue"], dirs["archive_raw"],
                                      dirs["parse_fail"], False, "email")
 
@@ -632,7 +631,7 @@ def main():
                 subprocess.call([
                     "attachment-downloader", "--host", email_server,
                     "--username", email_user, "--password", email_pass,
-                    "--output", dirs["email_out"], "--imap-folder",
+                    "--output", dirs["email_in"], "--imap-folder",
                     email_folder, "--delete"
                 ])
                 last_email = time.time()
