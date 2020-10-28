@@ -1,8 +1,7 @@
-FROM debian:sid-slim
-
-RUN apt-get update ; apt-get -y dist-upgrade
-RUN apt-get -y install python3 python3-pip
-RUN pip3 install attachment-downloader
+FROM python:3.7-slim
+  
+COPY requirements.txt /
+RUN pip install -r /requirements.txt
 
 COPY orchestrator.py /
 WORKDIR /
