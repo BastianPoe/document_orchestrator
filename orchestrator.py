@@ -536,6 +536,11 @@ def main():
             files = glob.glob(
                 os.path.join(dirs["ocr_out"], "Hot Folder Log*.txt"))
             for fullfile in files:
+                if len(glob.glob(os.path.join(dirs["ocr_out"], "*.pdf"))) > 0:
+                    logging.warning(
+                        "OCR output PDF suddenly appeared, skipping")
+                    break
+
                 file = os.path.basename(fullfile)
                 filename, file_extension = os.path.splitext(file)
                 logging.error("Found stale file %s in %s. Parsing", file,
@@ -564,19 +569,26 @@ def main():
                 duration = -1
             logging.info("OCR Queue is at %i since %i s",
                          len(os.listdir(dirs["ocr_in"])), duration)
-            files = os.listdir(dirs["ocr_queue"])
-            for file in files:
-                if not os.path.isfile(os.path.join(dirs["ocr_queue"], file)):
-                    continue
 
-                filename, file_extension = os.path.splitext(file)
-                if file_extension != ".pdf":
-                    continue
+            if len(glob.glob(os.path.join(dirs["ocr_out"], "*"))) > 0 or len(
+                    glob.glob(os.path.join(dirs["ocr_in"], "*"))) > 0:
+                logging.warning("Need to process OCR queue first, skipping")
+            else:
+                files = os.listdir(dirs["ocr_queue"])
+                for file in files:
+                    if not os.path.isfile(
+                            os.path.join(dirs["ocr_queue"], file)):
+                        continue
 
-                ret = serve_ocr_queue(dirs["ocr_queue"], file, dirs["ocr_in"])
+                    filename, file_extension = os.path.splitext(file)
+                    if file_extension != ".pdf":
+                        continue
 
-                if ret:
-                    last_ocr_in = time.time()
+                    ret = serve_ocr_queue(dirs["ocr_queue"], file,
+                                          dirs["ocr_in"])
+
+                    if ret:
+                        last_ocr_in = time.time()
             last_ocr_queue = time.time()
 
         # Check for status of all files in the DB
