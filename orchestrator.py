@@ -147,6 +147,24 @@ def get_index(directory):
     return len(files)
 
 
+def is_file_stable(pathname):
+    if (time.time() - os.path.getmtime(pathname)) < 120:
+        return False
+
+    return True
+
+
+def wait_for_file_to_stabilize(pathname):
+    if os.path.getmtime(pathname) > time.time():
+        logging.error("Time mismatch, please sync your clocks")
+        return
+
+    while not is_file_stable(pathname):
+        logging.info("Waiting for file %s to stabilize. (%i vs. %i)", pathname,
+                     time.time(), os.path.getmtime(pathname))
+        time.sleep(120)
+
+
 def process_scanner_file(directory,
                          filename,
                          prefix,
@@ -159,12 +177,7 @@ def process_scanner_file(directory,
     index = get_index(archive_raw)
 
     logging.info("Handling scanned file %s", filename)
-    fullpath = os.path.join(directory, filename)
-    while (time.time() - os.path.getmtime(fullpath)) < 60:
-        logging.info(
-            "Sleeping 120s, because input file has recently changed (%i vs. %i)",
-            time.time(), os.path.getmtime(fullpath))
-        time.sleep(120)
+    wait_for_file_to_stabilize(os.path.join(directory, filename))
 
     regex_app = r"^[a-z]*[\.\-_]{1}([0-9]{2,4})[\.\-_]{1}([0-9]{1,2})" + \
             r"[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}" + \
@@ -285,6 +298,9 @@ def preserve_hfl(filename, hfl):
 def process_ocred_file(directory, filename, consumption, archive_ocred):
     logging.info("Handling OCRed file %s", filename)
 
+    # Make sure file is really done
+    wait_for_file_to_stabilize(os.path.join(directory, filename))
+
     logging.info("Waiting for OCR Log to appear...")
     path = os.path.join(directory, "Hot Folder Log*.txt")
     while len(glob.glob(path)) < 1:
@@ -317,6 +333,9 @@ def process_ocred_file(directory, filename, consumption, archive_ocred):
 
     if len(hot_folder_log) == 1:
         logging.debug("Parsing %s", hot_folder_log[0])
+        # Make sure file is really done
+        wait_for_file_to_stabilize(hot_folder_log[0])
+
         values = parse_ocr_log(directory, os.path.basename(hot_folder_log[0]))
         add_ocr_parameters(filename, values)
         preserve_hfl(filename, hot_folder_log[0])
@@ -416,6 +435,9 @@ def cleanup_ocr_in(ocr_in, ocr_fail, error=None):
         return True
 
     if len(failed_ocr) == 1:
+        # Make sure file is really done
+        wait_for_file_to_stabilize(failed_ocr[0])
+
         filename = os.path.basename(failed_ocr[0])
         logging.error("OCR for %s failed with %s, moving to %s", filename,
                       error, ocr_fail)
@@ -498,6 +520,10 @@ def main():
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
+                # Make sure that files have not been recently changed before touching them
+                if not is_file_stable(fullfile):
+                    continue
+
                 process_scanner_file(dirs["scanner_in"], filename, prefix,
                                      dirs["ocr_queue"], dirs["archive_raw"],
                                      dirs["parse_fail"], True, "scanner")
@@ -506,6 +532,10 @@ def main():
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
+                # Make sure that files have not been recently changed before touching them
+                if not is_file_stable(fullfile):
+                    continue
+
                 process_scanner_file(dirs["mobile_in"], filename, None,
                                      dirs["ocr_queue"], dirs["archive_raw"],
                                      dirs["parse_fail"], False, "mobile")
@@ -513,6 +543,10 @@ def main():
             files = glob.glob(os.path.join(dirs["email_in"], "*.pdf"))
             for fullfile in files:
                 filename = os.path.basename(fullfile)
+
+                # Make sure that files have not been recently changed before touching them
+                if not is_file_stable(fullfile):
+                    continue
 
                 process_scanner_file(dirs["email_in"], filename, None,
                                      dirs["ocr_queue"], dirs["archive_raw"],
@@ -526,6 +560,9 @@ def main():
 
             files = glob.glob(os.path.join(dirs["ocr_out"], "*.pdf"))
             for fullfile in files:
+                # Make sure that files have not been recently changed before touching them
+                wait_for_file_to_stabilize(fullfile)
+
                 file = os.path.basename(fullfile)
                 filename, file_extension = os.path.splitext(file)
                 process_ocred_file(dirs["ocr_out"], file, dirs["consumption"],
@@ -535,6 +572,9 @@ def main():
             files = glob.glob(
                 os.path.join(dirs["ocr_out"], "Hot Folder Log*.txt"))
             for fullfile in files:
+                # Make sure that files have not been recently changed before touching them
+                wait_for_file_to_stabilize(fullfile)
+
                 if len(glob.glob(os.path.join(dirs["ocr_out"], "*.pdf"))) > 0:
                     logging.warning(
                         "OCR output PDF suddenly appeared, skipping")
