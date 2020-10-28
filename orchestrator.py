@@ -159,6 +159,12 @@ def process_scanner_file(directory,
     index = get_index(archive_raw)
 
     logging.info("Handling scanned file %s", filename)
+    fullpath = os.path.join(directory, filename)
+    while (time.time() - os.path.getmtime(fullpath)) < 60:
+        logging.info(
+            "Sleeping 120s, because input file has recently changed (%i vs. %i)",
+            time.time(), os.path.getmtime(fullpath))
+        time.sleep(120)
 
     regex_app = r"^[a-z]*[\.\-_]{1}([0-9]{2,4})[\.\-_]{1}([0-9]{1,2})" + \
             r"[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}" + \
