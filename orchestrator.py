@@ -591,6 +591,8 @@ def main():
 
             files = glob.glob(
                 os.path.join(dirs["ocr_out"], "Hot Folder Log*.txt"))
+            if len(files) > 0:
+                logging.info("Found %i logfiles in ocr_out", len(files))
             for fullfile in files:
                 # Make sure that files have not been recently changed before touching them
                 wait_for_file_to_stabilize(fullfile)
@@ -600,14 +602,23 @@ def main():
                         "OCR output PDF suddenly appeared, skipping")
                     break
 
-                file = os.path.basename(fullfile)
-                filename, file_extension = os.path.splitext(file)
-                logging.error("Found stale file %s in %s. Parsing", file,
+                filename = os.path.basename(fullfile)
+                logging.error("Found file %s in %s. Parsing", filename,
                               dirs["ocr_out"])
 
-                stats = parse_ocr_log(dirs["ocr_out"], file)
-                preserve_hfl("stale_" + str(time.time()),
-                             os.path.join(dirs["ocr_out"], file))
+                stats = parse_ocr_log(dirs["ocr_out"], filename)
+
+                candidate_pdfs = glob.glob(
+                    os.path.join(dirs["ocr_in"], "*.pdf"))
+                if len(candidate_pdfs) == 1:
+                    # There is one PDF in the ocr_in folder and we have found the log for it
+                    candidate_pdf = os.path.basename(candidate_pdfs[0])
+                    preserve_hfl(candidate_pdf,
+                                 os.path.join(dirs["ocr_out"], filename))
+                else:
+                    # No clear matching this log to the input file
+                    preserve_hfl("stale_" + str(time.time()),
+                                 os.path.join(dirs["ocr_out"], filename))
 
                 last_ocr_in = None
 
