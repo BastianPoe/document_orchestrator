@@ -427,7 +427,23 @@ def parse_ocr_log(directory, filename):
     return result
 
 
-def cleanup_ocr_in(ocr_in, ocr_fail, error=None):
+def repair_pdf(pathname, ocr_queue):
+    dirname = os.path.dirname(pathname)
+    filename = os.path.basename(pathname)
+
+    if "_r.pdf" in filename:
+        logging.error("%s has been repaired and failed again", filename)
+        return
+
+    new_filename = filename.replace(".pdf", "_r.pdf")
+
+    logging.info("Trying to repair PDF %s with mutool", filename)
+    cmd = "mutool clean '" + pathname + "' '" + os.path.join(
+        ocr_queue, new_filename) + "'"
+    os.system(cmd)
+
+
+def cleanup_ocr_in(ocr_in, ocr_fail, ocr_queue, error=None):
     # OCR seems to have failed - update status and move away file
     failed_ocr = glob.glob(os.path.join(ocr_in, "*.pdf"))
     if len(failed_ocr) == 0:
@@ -438,6 +454,10 @@ def cleanup_ocr_in(ocr_in, ocr_fail, error=None):
         # Make sure file is really done
         wait_for_file_to_stabilize(failed_ocr[0])
 
+        # Try to repair the PDF and put it into the queue again
+        repair_pdf(failed_ocr[0], ocr_queue)
+
+        # Put pdf into failed folder
         filename = os.path.basename(failed_ocr[0])
         logging.error("OCR for %s failed with %s, moving to %s", filename,
                       error, ocr_fail)
@@ -596,7 +616,7 @@ def main():
                     continue
 
                 cleanup_ocr_in(dirs["ocr_in"], dirs["ocr_fail"],
-                               stats["Error_Message"])
+                               dirs["ocr_queue"], stats["Error_Message"])
             last_ocr_out = time.time()
 
         # Serve the OCR queue
@@ -644,7 +664,8 @@ def main():
                           (time.time() - last_ocr_in))
 
             # Remove files from ocr_in
-            cleanup_ocr_in(dirs["ocr_in"], dirs["ocr_fail"], "ocr timeout")
+            cleanup_ocr_in(dirs["ocr_in"], dirs["ocr_fail"], dirs["ocr_queue"],
+                           "ocr timeout")
 
             # Make sure that queue is considered empty
             last_ocr_in = None
