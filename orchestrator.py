@@ -34,7 +34,7 @@ def open_database(config):
     cursor.execute('''CREATE TABLE IF NOT EXISTS documents (
             name TEXT UNIQUE,
             hash_ocr VARCHAR(64) UNIQUE,
-            name_original TEXT UNIQUE,
+            name_original TEXT,
             hash_original VARCHAR(64) UNIQUE,
             status TEXT,
             last_update TEXT,
@@ -67,6 +67,24 @@ def get_database():
 
 def close_database(connection):
     connection.close()
+
+
+def is_document_known(document_hash):
+    connection = get_database()
+    cursor = connection.cursor()
+    known = False
+
+    result = cursor.execute(
+        'SELECT name FROM documents WHERE hash_original=? OR hash_ocr=?',
+        (document_hash, document_hash))
+    for row in result:
+        known = True
+        logging.debug("Documents with hash %s: %s", document_hash, str(row))
+        break
+
+    connection.commit()
+
+    return known
 
 
 def add_document(name_original, name, hash_original, status):
@@ -262,6 +280,11 @@ def process_scanner_file(directory,
 
     # Update Database
     hash_value = get_hash(os.path.join(directory, filename))
+
+    if is_document_known(hash_value):
+        logging.error("%s already present in database, deleting", filename)
+        os.unlink(os.path.join(directory, filename))
+        return
 
     if not add_document(filename, name, hash_value, "new"):
         logging.error("%s already present, deleting", filename)
