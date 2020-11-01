@@ -96,7 +96,8 @@ def add_document(name_original, name, hash_original, status):
                 (name_original, hash_original, name, status, last_update)
                 VALUES (?, ?, ?, ?, datetime("now"))''',
                        (name_original, hash_original, name, status))
-    except sqlite3.IntegrityError:
+    except sqlite3.IntegrityError as error:
+        logging.error("add_document failed with %s", ' '.join(error.args))
         # Document already present in database
         return False
 
@@ -220,7 +221,7 @@ def process_scanner_file(directory,
     regex_scanner = r"^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})" + \
             r"([0-9]{2})_[0-9a-zA-Z]+_[0-9]+\.pdf$"
     matches = re.match(regex_scanner, filename)
-    if matches is not None:
+    if name is None and matches is not None:
         name_list = [
             str(prefix), "{:05d}".format(index),
             matches.group(1),
@@ -276,7 +277,7 @@ def process_scanner_file(directory,
         ]
         name = "-".join(name_list) + ".pdf"
 
-        logging.info("Created input file filename %s", name)
+    logging.info("Created input file filename %s", name)
 
     # Update Database
     hash_value = get_hash(os.path.join(directory, filename))
