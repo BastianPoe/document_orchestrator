@@ -6,6 +6,8 @@ RUN /install-packages.sh
 COPY requirements.txt /
 RUN pip install -r /requirements.txt
 
+RUN apt-get -y remove --purge build-essential ; apt-get -y autoremove ; apt-get -y clean
+
 COPY orchestrator.py /
 WORKDIR /
 
