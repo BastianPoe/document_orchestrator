@@ -5,4 +5,4 @@ apt-get -y update
 apt-get -y dist-upgrade
 
 # Install dependencies
-apt-get -y install mupdf-tools
+apt-get -y install mupdf-tools build-essential libpoppler-cpp-dev pkg-config

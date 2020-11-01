@@ -11,6 +11,7 @@ import hashlib
 import glob
 from datetime import datetime
 import subprocess
+import pdftotext
 
 DB_CONNECTION = None
 
@@ -169,7 +170,9 @@ def process_scanner_file(directory,
                          filename,
                          prefix,
                          ocr_in,
+                         consumption,
                          archive_raw,
+                         archive_ocred,
                          fail,
                          strict=True,
                          suffix=None):
@@ -263,6 +266,29 @@ def process_scanner_file(directory,
     if not add_document(filename, name, hash_value, "new"):
         logging.error("%s already present, deleting", filename)
         os.unlink(os.path.join(directory, filename))
+        return
+
+    if not file_needs_ocr(os.path.join(directory, filename)):
+        logging.info("%s does not need OCR, bypassing queue", filename)
+        logging.info("Saving to %s", os.path.join(consumption, filename))
+        shutil.copy2(
+            os.path.join(directory, filename),
+            os.path.join(consumption, filename))
+        os.chmod(os.path.join(consumption, filename), 0o777)
+
+        logging.info("Saving to %s", os.path.join(archive_ocred, filename))
+        shutil.copy2(
+            os.path.join(directory, filename),
+            os.path.join(archive_ocred, filename))
+        os.chmod(os.path.join(archive_ocred, filename), 0o777)
+
+        # Update database
+        hash_ocr = get_hash(os.path.join(directory, filename))
+        add_ocr_hash(filename, hash_ocr)
+
+        # Remove input file
+        os.unlink(os.path.join(directory, filename))
+
         return
 
     # Copy to OCR hot folder
@@ -443,6 +469,21 @@ def repair_pdf(pathname, ocr_queue):
     os.system(cmd)
 
 
+def file_needs_ocr(filename):
+    try:
+        with open(filename, "rb") as handle:
+            lines = pdftotext.PDF(handle)
+    except pdftotext.Error:
+        return True
+
+    text = "\n".join(lines)
+
+    if len(text.strip()) > 10:
+        return False
+
+    return True
+
+
 def cleanup_ocr_in(ocr_in, ocr_fail, ocr_queue, error=None):
     # OCR seems to have failed - update status and move away file
     failed_ocr = glob.glob(os.path.join(ocr_in, "*.pdf"))
@@ -544,9 +585,10 @@ def main():
                 if not is_file_stable(fullfile):
                     continue
 
-                process_scanner_file(dirs["scanner_in"], filename, prefix,
-                                     dirs["ocr_queue"], dirs["archive_raw"],
-                                     dirs["parse_fail"], True, "scanner")
+                process_scanner_file(
+                    dirs["scanner_in"], filename, prefix, dirs["ocr_queue"],
+                    dirs["consumption"], dirs["archive_raw"],
+                    dirs["archive_ocred"], dirs["parse_fail"], True, "scanner")
 
             files = glob.glob(os.path.join(dirs["mobile_in"], "*.pdf"))
             for fullfile in files:
@@ -556,9 +598,10 @@ def main():
                 if not is_file_stable(fullfile):
                     continue
 
-                process_scanner_file(dirs["mobile_in"], filename, None,
-                                     dirs["ocr_queue"], dirs["archive_raw"],
-                                     dirs["parse_fail"], False, "mobile")
+                process_scanner_file(
+                    dirs["mobile_in"], filename, None, dirs["ocr_queue"],
+                    dirs["consumption"], dirs["archive_raw"],
+                    dirs["archive_ocred"], dirs["parse_fail"], False, "mobile")
 
             files = glob.glob(os.path.join(dirs["email_in"], "*.pdf"))
             for fullfile in files:
@@ -568,9 +611,10 @@ def main():
                 if not is_file_stable(fullfile):
                     continue
 
-                process_scanner_file(dirs["email_in"], filename, None,
-                                     dirs["ocr_queue"], dirs["archive_raw"],
-                                     dirs["parse_fail"], False, "email")
+                process_scanner_file(
+                    dirs["email_in"], filename, None, dirs["ocr_queue"],
+                    dirs["consumption"], dirs["archive_raw"],
+                    dirs["archive_ocred"], dirs["parse_fail"], False, "email")
 
             last_scanner_out = time.time()
 
