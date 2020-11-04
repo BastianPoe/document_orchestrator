@@ -292,39 +292,36 @@ def process_scanner_file(directory,
         os.unlink(os.path.join(directory, filename))
         return
 
-    if not file_needs_ocr(os.path.join(directory, filename)):
-        logging.info("%s does not need OCR, bypassing queue", filename)
-        logging.info("Saving to %s", os.path.join(consumption, filename))
-        shutil.copy2(
-            os.path.join(directory, filename),
-            os.path.join(consumption, filename))
-        os.chmod(os.path.join(consumption, filename), 0o777)
-
-        logging.info("Saving to %s", os.path.join(archive_ocred, filename))
-        shutil.copy2(
-            os.path.join(directory, filename),
-            os.path.join(archive_ocred, filename))
-        os.chmod(os.path.join(archive_ocred, filename), 0o777)
-
-        # Update database
-        hash_ocr = get_hash(os.path.join(directory, filename))
-        add_ocr_hash(filename, hash_ocr)
-
-        # Remove input file
-        os.unlink(os.path.join(directory, filename))
-
-        return
-
-    # Copy to OCR hot folder
-    logging.info("Saving to %s", os.path.join(ocr_in, name))
-    shutil.copy2(os.path.join(directory, filename), os.path.join(ocr_in, name))
-    os.chmod(os.path.join(ocr_in, name), 0o777)
-
     # Copy to permanent archive
     logging.info("Saving to %s", os.path.join(archive_raw, name))
     shutil.copy2(
         os.path.join(directory, filename), os.path.join(archive_raw, name))
     os.chmod(os.path.join(archive_raw, name), 0o777)
+
+    if file_needs_ocr(os.path.join(directory, filename)):
+        # Copy to OCR hot folder
+        logging.info("Saving to %s", os.path.join(ocr_in, name))
+        shutil.copy2(
+            os.path.join(directory, filename), os.path.join(ocr_in, name))
+        os.chmod(os.path.join(ocr_in, name), 0o777)
+    else:
+        # Skip OCR, text is already there
+        logging.info("%s does not need OCR, bypassing queue", filename)
+        logging.info("Saving to %s", os.path.join(consumption, name))
+        shutil.copy2(
+            os.path.join(directory, filename),
+            os.path.join(consumption, name))
+        os.chmod(os.path.join(consumption, name), 0o777)
+
+        logging.info("Saving to %s", os.path.join(archive_ocred, name))
+        shutil.copy2(
+            os.path.join(directory, filename),
+            os.path.join(archive_ocred, name))
+        os.chmod(os.path.join(archive_ocred, name), 0o777)
+
+        # Update database
+        hash_ocr = get_hash(os.path.join(directory, filename))
+        add_ocr_hash(name, hash_ocr)
 
     # Remove input file
     os.unlink(os.path.join(directory, filename))
