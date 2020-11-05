@@ -497,9 +497,9 @@ def file_needs_ocr(filename):
     except pdftotext.Error:
         return True
 
-    text = "\n".join(lines)
+    text = "".join(lines)
 
-    if len(text.strip()) > 10:
+    if len(text.strip()) > 50:
         return False
 
     return True
