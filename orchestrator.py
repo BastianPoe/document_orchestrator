@@ -421,11 +421,11 @@ def serve_ocr_queue(directory, filename, ocr_in):
 
 
 def parse_ocr_log(directory, filename):
-    regex_pages = r"^Verarbeitete Seiten:[ \t]*([0-9]+).$"
-    regex_time = r"^Erkennungszeit:[ \t]*([0-9]+) Stunden ([0-9]+) Minuten ([0-9]+) Sekunden.$"
-    regex_error = r"^Fehler/Warnungen:[ \t]*([0-9]+) / ([0-9]+).$"
-    regex_quali = r"^Nicht eindeutige Zeichen:[ \t]*([0-9]+) % \(([0-9]+) / ([0-9]+)\).$"
-    regex_reason = r"^[0-9\., :\t]+Fehler: (.*)$"
+    regex_pages = r"^(?:Verarbeitete Seiten|Pages processed):[ \t]*([0-9]+).$"
+    regex_time = r"^(?:Erkennungszeit|Recognition time):[ \t]*([0-9]+) (?:Stunden|hours) ([0-9]+) (?:Minuten|minutes) ([0-9]+) (?:Sekunden|seconds).$"
+    regex_error = r"^(?:Fehler/Warnungen|Errors/warnings ):[ \t]*([0-9]+) / ([0-9]+).$"
+    regex_quali = r"^(?:Nicht eindeutige Zeichen|Low-confidence characters):[ \t]*([0-9]+) % \(([0-9]+) / ([0-9]+)\).$"
+    regex_reason = r"^[0-9\., :\t]+(?:Fehler|Error): (.*)$"
 
     path = os.path.join(directory, filename)
 
