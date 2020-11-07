@@ -182,7 +182,7 @@ def wait_for_file_to_stabilize(pathname):
     while not is_file_stable(pathname):
         logging.info("Waiting for file %s to stabilize. (%i vs. %i)", pathname,
                      time.time(), os.path.getmtime(pathname))
-        time.sleep(120)
+        time.sleep(30)
 
 
 def process_scanner_file(directory,
