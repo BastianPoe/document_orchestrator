@@ -92,10 +92,11 @@ def add_document(name_original, name, hash_original, status):
     cursor = connection.cursor()
 
     try:
-        cursor.execute('''INSERT INTO documents
+        cursor.execute(
+            '''INSERT INTO documents
                 (name_original, hash_original, name, status, last_update)
                 VALUES (?, ?, ?, ?, datetime("now"))''',
-                       (name_original, hash_original, name, status))
+            (name_original, hash_original, name, status))
     except sqlite3.IntegrityError as error:
         logging.error("add_document failed with %s", ' '.join(error.args))
         # Document already present in database
@@ -108,13 +109,15 @@ def add_document(name_original, name, hash_original, status):
 def add_ocr_hash(name, hash_ocr):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute('''INSERT OR IGNORE INTO documents
+    cursor.execute(
+        '''INSERT OR IGNORE INTO documents
         (name, status, last_update)
         VALUES (?, ?, datetime("now"))''', (name, "new"))
     logging.debug("Updating %s with %s", name, hash_ocr)
-    cursor.execute('''UPDATE documents SET
+    cursor.execute(
+        '''UPDATE documents SET
         hash_ocr=?, status=?, last_update=datetime("now") WHERE name=?''',
-                   (hash_ocr, "ocred", name))
+        (hash_ocr, "ocred", name))
     connection.commit()
 
 
@@ -133,7 +136,8 @@ def add_ocr_parameters(filename, values):
 def update_status(name, status):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute('''UPDATE documents SET
+    cursor.execute(
+        '''UPDATE documents SET
         status=?, last_update=datetime("now") WHERE name=?''', (status, name))
     connection.commit()
 
@@ -141,16 +145,18 @@ def update_status(name, status):
 def update_status_by_original_hash(hash_original, status):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute('''UPDATE documents SET
+    cursor.execute(
+        '''UPDATE documents SET
         status=?, last_update=datetime("now") WHERE hash_original=?''',
-                   (status, hash_original))
+        (status, hash_original))
     connection.commit()
 
 
 def save_log(name, log):
     connection = get_database()
     cursor = connection.cursor()
-    cursor.execute('''INSERT INTO document_logs
+    cursor.execute(
+        '''INSERT INTO document_logs
         (name, timestamp, log) VALUES (?, datetime("now"), ?)''', (name, log))
     connection.commit()
 
@@ -255,9 +261,8 @@ def process_scanner_file(directory,
         if strict:
             logging.error("Unable to parse %s, moving to %s!", filename, fail)
 
-            shutil.move(
-                os.path.join(directory, filename), os.path.join(
-                    fail, filename))
+            shutil.move(os.path.join(directory, filename),
+                        os.path.join(fail, filename))
             os.chmod(os.path.join(fail, filename), 0o777)
             return
 
@@ -294,29 +299,27 @@ def process_scanner_file(directory,
 
     # Copy to permanent archive
     logging.info("Saving to %s", os.path.join(archive_raw, name))
-    shutil.copy2(
-        os.path.join(directory, filename), os.path.join(archive_raw, name))
+    shutil.copy2(os.path.join(directory, filename),
+                 os.path.join(archive_raw, name))
     os.chmod(os.path.join(archive_raw, name), 0o777)
 
     if file_needs_ocr(os.path.join(directory, filename)):
         # Copy to OCR hot folder
         logging.info("Saving to %s", os.path.join(ocr_in, name))
-        shutil.copy2(
-            os.path.join(directory, filename), os.path.join(ocr_in, name))
+        shutil.copy2(os.path.join(directory, filename),
+                     os.path.join(ocr_in, name))
         os.chmod(os.path.join(ocr_in, name), 0o777)
     else:
         # Skip OCR, text is already there
         logging.info("%s does not need OCR, bypassing queue", filename)
         logging.info("Saving to %s", os.path.join(consumption, name))
-        shutil.copy2(
-            os.path.join(directory, filename),
-            os.path.join(consumption, name))
+        shutil.copy2(os.path.join(directory, filename),
+                     os.path.join(consumption, name))
         os.chmod(os.path.join(consumption, name), 0o777)
 
         logging.info("Saving to %s", os.path.join(archive_ocred, name))
-        shutil.copy2(
-            os.path.join(directory, filename),
-            os.path.join(archive_ocred, name))
+        shutil.copy2(os.path.join(directory, filename),
+                     os.path.join(archive_ocred, name))
         os.chmod(os.path.join(archive_ocred, name), 0o777)
 
         # Update database
@@ -355,14 +358,13 @@ def process_ocred_file(directory, filename, consumption, archive_ocred):
         time.sleep(10)
 
     logging.info("Saving to %s", os.path.join(consumption, filename))
-    shutil.copy2(
-        os.path.join(directory, filename), os.path.join(consumption, filename))
+    shutil.copy2(os.path.join(directory, filename),
+                 os.path.join(consumption, filename))
     os.chmod(os.path.join(consumption, filename), 0o777)
 
     logging.info("Saving to %s", os.path.join(archive_ocred, filename))
-    shutil.copy2(
-        os.path.join(directory, filename), os.path.join(
-            archive_ocred, filename))
+    shutil.copy2(os.path.join(directory, filename),
+                 os.path.join(archive_ocred, filename))
     os.chmod(os.path.join(archive_ocred, filename), 0o777)
 
     # Update database
@@ -411,8 +413,8 @@ def serve_ocr_queue(directory, filename, ocr_in):
         return False
 
     logging.info("Starting OCR of %s", filename)
-    shutil.move(
-        os.path.join(directory, filename), os.path.join(ocr_in, filename))
+    shutil.move(os.path.join(directory, filename),
+                os.path.join(ocr_in, filename))
     os.chmod(os.path.join(ocr_in, filename), 0o777)
 
     update_status(filename, "ocring")
@@ -565,15 +567,15 @@ def main():
             continue
 
     # Configure logging
-    logging.basicConfig(
-        format='%(asctime)s %(levelname)s %(message)s',
-        datefmt='%d.%m.%Y %H:%M:%S',
-        level=logging.DEBUG,
-        handlers=[
-            logging.FileHandler(
-                os.path.join(dirs["logs"], "orchestrator.log")),
-            logging.StreamHandler()
-        ])
+    logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s',
+                        datefmt='%d.%m.%Y %H:%M:%S',
+                        level=logging.DEBUG,
+                        handlers=[
+                            logging.FileHandler(
+                                os.path.join(dirs["logs"],
+                                             "orchestrator.log")),
+                            logging.StreamHandler()
+                        ])
 
     # Setup database
     logging.debug("Initializing SQLite DB")
@@ -727,8 +729,8 @@ def main():
             else:
                 files = os.listdir(dirs["ocr_queue"])
                 for file in files:
-                    if not os.path.isfile(
-                            os.path.join(dirs["ocr_queue"], file)):
+                    if not os.path.isfile(os.path.join(dirs["ocr_queue"],
+                                                       file)):
                         continue
 
                     filename, file_extension = os.path.splitext(file)
