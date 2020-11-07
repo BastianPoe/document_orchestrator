@@ -553,7 +553,8 @@ def main():
         "archive_ocred": "archive_ocr",
         "archive_raw": "archive_raw",
         "config": "config",
-        "logs": "logs"
+        "logs": "logs",
+        "mirror": "mirror"
     }
 
     for index in dirs:
@@ -606,10 +607,15 @@ def main():
                 if not is_file_stable(fullfile):
                     continue
 
-                process_scanner_file(
-                    dirs["scanner_in"], filename, prefix, dirs["ocr_queue"],
-                    dirs["consumption"], dirs["archive_raw"],
-                    dirs["archive_ocred"], dirs["parse_fail"], True, "scanner")
+                # Mirror all ingress files for testing
+                shutil.copy2(fullfile, os.path.join(dirs["mirror"], filename))
+                os.chmod(os.path.join(dirs["mirror"], filename), 0o777)
+
+                process_scanner_file(dirs["scanner_in"], filename, prefix,
+                                     dirs["ocr_queue"], dirs["consumption"],
+                                     dirs["archive_raw"],
+                                     dirs["archive_ocred"], dirs["parse_fail"],
+                                     True, "scanner")
 
             files = glob.glob(os.path.join(dirs["mobile_in"], "*.pdf"))
             for fullfile in files:
@@ -619,10 +625,15 @@ def main():
                 if not is_file_stable(fullfile):
                     continue
 
-                process_scanner_file(
-                    dirs["mobile_in"], filename, None, dirs["ocr_queue"],
-                    dirs["consumption"], dirs["archive_raw"],
-                    dirs["archive_ocred"], dirs["parse_fail"], False, "mobile")
+                # Mirror all ingress files for testing
+                shutil.copy2(fullfile, os.path.join(dirs["mirror"], filename))
+                os.chmod(os.path.join(dirs["mirror"], filename), 0o777)
+
+                process_scanner_file(dirs["mobile_in"], filename, None,
+                                     dirs["ocr_queue"], dirs["consumption"],
+                                     dirs["archive_raw"],
+                                     dirs["archive_ocred"], dirs["parse_fail"],
+                                     False, "mobile")
 
             files = glob.glob(os.path.join(dirs["email_in"], "*.pdf"))
             for fullfile in files:
@@ -632,10 +643,15 @@ def main():
                 if not is_file_stable(fullfile):
                     continue
 
-                process_scanner_file(
-                    dirs["email_in"], filename, None, dirs["ocr_queue"],
-                    dirs["consumption"], dirs["archive_raw"],
-                    dirs["archive_ocred"], dirs["parse_fail"], False, "email")
+                # Mirror all ingress files for testing
+                shutil.copy2(fullfile, os.path.join(dirs["mirror"], filename))
+                os.chmod(os.path.join(dirs["mirror"], filename), 0o777)
+
+                process_scanner_file(dirs["email_in"], filename, None,
+                                     dirs["ocr_queue"], dirs["consumption"],
+                                     dirs["archive_raw"],
+                                     dirs["archive_ocred"], dirs["parse_fail"],
+                                     False, "email")
 
             last_scanner_out = time.time()
 
