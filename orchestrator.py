@@ -785,10 +785,11 @@ def main():
                 last_email = None
             else:
                 subprocess.call([
-                    "attachment-downloader", "--host", email_server,
-                    "--username", email_user, "--password", email_pass,
-                    "--output", dirs["email_in"], "--imap-folder",
-                    email_folder, "--delete"
+                    "detach.py", "-v", "-H", email_server, "-u", email_user,
+                    "-p", email_pass, "--folder", email_folder, "--delete",
+                    "-f", dirs["email_in"] +
+                    "/{year}-{month}-{day}-{subject}-{name}",
+                    "attached & ! seen"
                 ])
                 last_email = time.time()
 

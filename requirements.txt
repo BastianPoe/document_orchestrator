@@ -1,2 +1,2 @@
-attachment-downloader
+imap_detach
 pdftotext
