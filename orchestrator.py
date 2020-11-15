@@ -200,7 +200,8 @@ def process_scanner_file(directory,
                          archive_ocred,
                          fail,
                          strict=True,
-                         suffix=None):
+                         suffix=None,
+                         force_ocr=False):
     name = None
     index = get_index(archive_raw)
 
@@ -303,7 +304,7 @@ def process_scanner_file(directory,
                  os.path.join(archive_raw, name))
     os.chmod(os.path.join(archive_raw, name), 0o777)
 
-    if file_needs_ocr(os.path.join(directory, filename)):
+    if not force_ocr and file_needs_ocr(os.path.join(directory, filename)):
         # Copy to OCR hot folder
         logging.info("Saving to %s", os.path.join(ocr_in, name))
         shutil.copy2(os.path.join(directory, filename),
@@ -617,7 +618,7 @@ def main():
                                      dirs["ocr_queue"], dirs["consumption"],
                                      dirs["archive_raw"],
                                      dirs["archive_ocred"], dirs["parse_fail"],
-                                     True, "scanner")
+                                     True, "scanner", True)
 
             files = glob.glob(os.path.join(dirs["mobile_in"], "*.pdf"))
             for fullfile in files:
@@ -635,7 +636,7 @@ def main():
                                      dirs["ocr_queue"], dirs["consumption"],
                                      dirs["archive_raw"],
                                      dirs["archive_ocred"], dirs["parse_fail"],
-                                     False, "mobile")
+                                     False, "mobile", True)
 
             files = glob.glob(os.path.join(dirs["email_in"], "*.pdf"))
             for fullfile in files:
@@ -653,7 +654,7 @@ def main():
                                      dirs["ocr_queue"], dirs["consumption"],
                                      dirs["archive_raw"],
                                      dirs["archive_ocred"], dirs["parse_fail"],
-                                     False, "email")
+                                     False, "email", False)
 
             last_scanner_out = time.time()
 
