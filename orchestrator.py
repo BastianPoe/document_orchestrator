@@ -784,6 +784,7 @@ def main():
                 )
                 last_email = None
             else:
+                logging.debug("Retrieving email from %s", email_server)
                 subprocess.call([
                     "detach.py", "-v", "-H", email_server, "-u", email_user,
                     "-p", email_pass, "--folder", email_folder, "--delete",
