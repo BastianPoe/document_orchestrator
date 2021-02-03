@@ -322,7 +322,7 @@ def process_scanner_file(directory,
                  os.path.join(archive_raw, name))
     os.chmod(os.path.join(archive_raw, name), 0o777)
 
-    if not force_ocr and file_needs_ocr(os.path.join(directory, filename)):
+    if force_ocr or file_needs_ocr(os.path.join(directory, filename)):
         # Copy to OCR hot folder
         logging.info("Saving to %s", os.path.join(ocr_in, name))
         shutil.copy2(os.path.join(directory, filename),
