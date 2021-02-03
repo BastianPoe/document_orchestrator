@@ -241,6 +241,24 @@ def process_scanner_file(directory,
         ]
         name = "-".join(name_list) + ".pdf"
 
+    # IMG_20210202_0001.pdf
+    regex_canon = r"IMG_([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]+)[0-9\(\)]*.pdf$" 
+    matches = re.match(regex_canon, filename)
+    if name is None and matches is not None:
+        now = datetime.now()
+        name_list = [
+            str(None), "{:05d}".format(index),
+            matches.group(1),
+            matches.group(2),
+            matches.group(3),
+            now.strftime("%H"),
+            now.strftime("%M"),
+            now.strftime("%S"),
+            str(suffix),
+            matches.group(4)
+        ]
+        name = "-".join(name_list) + ".pdf"
+
     regex_heuristic = r"([0-9]{4})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
             r"[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
             r".*\.pdf$"
