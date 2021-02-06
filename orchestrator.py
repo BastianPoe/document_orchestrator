@@ -191,6 +191,140 @@ def wait_for_file_to_stabilize(pathname):
         time.sleep(30)
 
 
+def parse_app_filename(filename, prefix, index, suffix):
+    regex_app = r"^[a-z]*[\.\-_]{1}([0-9]{2,4})[\.\-_]{1}([0-9]{1,2})" + \
+            r"[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}" + \
+            r"([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})\.pdf$"
+
+    matches = re.match(regex_app, filename)
+    if matches is None:
+        return None
+
+    filename_no_ext, file_extension = os.path.splitext(filename)
+
+    name_list = [
+        str(prefix), "{:05d}".format(index),
+        matches.group(1),
+        matches.group(2),
+        matches.group(3),
+        matches.group(4),
+        matches.group(5),
+        matches.group(6),
+        str(suffix), filename_no_ext
+    ]
+    name = "-".join(name_list) + ".pdf"
+
+    return name
+
+
+def parse_adf_filename(filename, prefix, index, suffix):
+    regex_scanner = r"^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})" + \
+            r"([0-9]{2})_[0-9a-zA-Z]+_[0-9]+\.pdf$"
+    matches = re.match(regex_scanner, filename)
+    if matches is None:
+        return None
+
+    filename_no_ext, file_extension = os.path.splitext(filename)
+
+    name_list = [
+        str(prefix), "{:05d}".format(index),
+        matches.group(1),
+        matches.group(2),
+        matches.group(3),
+        matches.group(4),
+        matches.group(5),
+        matches.group(6),
+        str(suffix), filename_no_ext
+    ]
+    name = "-".join(name_list) + ".pdf"
+
+    return name
+
+
+def parse_canon_filename(filename, prefix, index, suffix):
+    # IMG_20210202_0001.pdf
+    regex_canon = r"IMG_([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]+)[0-9\(\)]*.pdf$"
+    matches = re.match(regex_canon, filename)
+    if matches is None:
+        return None
+
+    filename_no_ext, file_extension = os.path.splitext(filename)
+
+    now = datetime.now()
+    name_list = [
+        str(None), "{:05d}".format(index),
+        matches.group(1),
+        matches.group(2),
+        matches.group(3),
+        now.strftime("%H"),
+        now.strftime("%M"),
+        now.strftime("%S"),
+        str(suffix),
+        matches.group(4), filename_no_ext
+    ]
+    name = "-".join(name_list) + ".pdf"
+
+    return name
+
+
+def parse_filename_heuristic(filename, prefix, index, suffix):
+    regex_heuristic = r"([0-9]{4})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
+            r"[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
+            r".*\.pdf$"
+    matches = re.match(regex_heuristic, filename)
+
+    if matches is None:
+        return None
+
+    filename_no_ext, file_extension = os.path.splitext(filename)
+
+    name_list = [
+        str(prefix), "{:05d}".format(index),
+        matches.group(1),
+        matches.group(2),
+        matches.group(3),
+        matches.group(4),
+        matches.group(5),
+        matches.group(6),
+        str(suffix), filename_no_ext
+    ]
+    name = "-".join(name_list) + ".pdf"
+
+    return name
+
+
+def parse_orchestrated_filename(filename, prefix, index, suffix):
+    # Format: box00001-00008-2018-01-01-00-09-55-scanner.pdf
+    # Format: None-00443-2020-11-08-08-37-37-mobile-scan_2020-11-08-06.23-49 39.pdf
+    regex_orchestrator = r"([a-z0-9]+)-([0-9]+)-([0-9]+)-([0-9]+)-" + \
+            r"([0-9]+)-([0-9]+)-([0-9]+)-([0-9]+)-([a-z0-9]+)[-]*(.*)$"
+
+    filename_no_ext, file_extension = os.path.splitext(filename)
+
+    matches = re.match(regex_orchestrator, filename_no_ext, re.IGNORECASE)
+
+    if matches is None:
+        return None
+
+    name_list = [
+        matches.group(1), "{:05d}".format(index),
+        matches.group(3),
+        matches.group(4),
+        matches.group(5),
+        matches.group(6),
+        matches.group(7),
+        matches.group(8),
+        matches.group(9)
+    ]
+
+    if len(matches.group(10)) > 0:
+        name_list.append(matches.group(10))
+
+    name = "-".join(name_list) + ".pdf"
+
+    return name
+
+
 def process_scanner_file(directory,
                          filename,
                          prefix,
@@ -208,84 +342,30 @@ def process_scanner_file(directory,
     logging.info("Handling scanned file %s", filename)
     wait_for_file_to_stabilize(os.path.join(directory, filename))
 
-    regex_app = r"^[a-z]*[\.\-_]{1}([0-9]{2,4})[\.\-_]{1}([0-9]{1,2})" + \
-            r"[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}" + \
-            r"([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})\.pdf$"
-    matches = re.match(regex_app, filename)
-    if matches is not None:
-        name_list = [
-            str(prefix), "{:05d}".format(index),
-            matches.group(1),
-            matches.group(2),
-            matches.group(3),
-            matches.group(4),
-            matches.group(5),
-            matches.group(6),
-            str(suffix)
-        ]
-        name = "-".join(name_list) + ".pdf"
-
-    regex_scanner = r"^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})" + \
-            r"([0-9]{2})_[0-9a-zA-Z]+_[0-9]+\.pdf$"
-    matches = re.match(regex_scanner, filename)
-    if name is None and matches is not None:
-        name_list = [
-            str(prefix), "{:05d}".format(index),
-            matches.group(1),
-            matches.group(2),
-            matches.group(3),
-            matches.group(4),
-            matches.group(5),
-            matches.group(6),
-            str(suffix)
-        ]
-        name = "-".join(name_list) + ".pdf"
-
-    # IMG_20210202_0001.pdf
-    regex_canon = r"IMG_([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]+)[0-9\(\)]*.pdf$" 
-    matches = re.match(regex_canon, filename)
-    if name is None and matches is not None:
-        now = datetime.now()
-        name_list = [
-            str(None), "{:05d}".format(index),
-            matches.group(1),
-            matches.group(2),
-            matches.group(3),
-            now.strftime("%H"),
-            now.strftime("%M"),
-            now.strftime("%S"),
-            str(suffix),
-            matches.group(4)
-        ]
-        name = "-".join(name_list) + ".pdf"
-
-    regex_heuristic = r"([0-9]{4})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
-            r"[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
-            r".*\.pdf$"
-    matches = re.match(regex_heuristic, filename)
-    if name is None and matches is not None:
-        name_list = [
-            str(prefix), "{:05d}".format(index),
-            matches.group(1),
-            matches.group(2),
-            matches.group(3),
-            matches.group(4),
-            matches.group(5),
-            matches.group(6),
-            str(suffix)
-        ]
-        name = "-".join(name_list) + ".pdf"
+    name = parse_app_filename(filename, prefix, index, suffix)
 
     if name is None:
-        if strict:
-            logging.error("Unable to parse %s, moving to %s!", filename, fail)
+        name = parse_adf_filename(filename, prefix, index, suffix)
 
-            shutil.move(os.path.join(directory, filename),
-                        os.path.join(fail, filename))
-            os.chmod(os.path.join(fail, filename), 0o777)
-            return
+    if name is None:
+        name = parse_canon_filename(filename, prefix, index, suffix)
 
-        # Just make up a name as we go along
+    if name is None:
+        name = parse_filename_heuristic(filename, prefix, index, suffix)
+
+    if name is None:
+        name = parse_orchestrated_filename(filename, prefix, index, suffix)
+
+    if name is None and strict:
+        logging.error("Unable to parse %s, moving to %s!", filename, fail)
+
+        shutil.move(os.path.join(directory, filename),
+                    os.path.join(fail, filename))
+        os.chmod(os.path.join(fail, filename), 0o777)
+        return
+
+    if name is None:
+        # Just make up a name as we go
         filename_no_ext, file_extension = os.path.splitext(filename)
 
         now = datetime.now()
