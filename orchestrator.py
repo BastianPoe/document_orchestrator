@@ -192,9 +192,11 @@ def wait_for_file_to_stabilize(pathname):
 
 
 def parse_app_filename(filename, prefix, index, suffix):
+    # Format: scan_2021-01-08-08.43-37.pdf
+    # Format: scan_2020-11-08-06.23-49 39.pdf
     regex_app = r"^[a-z]*[\.\-_]{1}([0-9]{2,4})[\.\-_]{1}([0-9]{1,2})" + \
             r"[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}" + \
-            r"([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})\.pdf$"
+            r"([0-9]{1,2})[\.\-_]{1}([0-9]{1,2}).*\.pdf$"
 
     matches = re.match(regex_app, filename)
     if matches is None:
