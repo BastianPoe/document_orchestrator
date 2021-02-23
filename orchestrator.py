@@ -922,7 +922,7 @@ def main():
                     "-p", email_pass, "--folder", email_folder, "--delete",
                     "-f", dirs["email_in"] +
                     "/{year}-{month}-{day}-{subject}-{name}",
-                    "attached & ! seen"
+                    "mime= \"application/pdf\""
                 ])
                 last_email = time.time()
 
