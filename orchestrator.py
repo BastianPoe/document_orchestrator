@@ -295,6 +295,35 @@ def parse_filename_heuristic(filename, prefix, index, suffix):
     return name
 
 
+def parse_email_filename(filename, prefix, index, suffix):
+    # Format: 2021-1-18--VERTRAGSRELEVANTE_DOKUMENTE_dat20200928_id909128141.pdf
+    regex_email = r"([0-9]{4})-([0-9]{1,2})-([0-9]{1,2})--(.*)$"
+
+    filename_no_ext, file_extension = os.path.splitext(filename)
+
+    matches = re.match(regex_email, filename_no_ext, re.IGNORECASE)
+
+    if matches is None:
+        return None
+
+    now = datetime.now()
+    name_list = [
+        str(None), "{:05d}".format(index),
+        "{:04d}".format(int(matches.group(1))),
+        "{:02d}".format(int(matches.group(2))),
+        "{:02d}".format(int(matches.group(3))),
+        now.strftime("%H"),
+        now.strftime("%M"),
+        now.strftime("%S"),
+        str(suffix),
+        matches.group(4)
+    ]
+
+    name = "-".join(name_list) + ".pdf"
+
+    return name
+
+
 def parse_orchestrated_filename(filename, prefix, index, suffix):
     # Format: box00001-00008-2018-01-01-00-09-55-scanner.pdf
     # Format: None-00443-2020-11-08-08-37-37-mobile-scan_2020-11-08-06.23-49 39.pdf
@@ -353,10 +382,13 @@ def process_scanner_file(directory,
         name = parse_canon_filename(filename, prefix, index, suffix)
 
     if name is None:
-        name = parse_filename_heuristic(filename, prefix, index, suffix)
+        name = parse_orchestrated_filename(filename, prefix, index, suffix)
 
     if name is None:
-        name = parse_orchestrated_filename(filename, prefix, index, suffix)
+        name = parse_email_filename(filename, prefix, index, suffix)
+
+    if name is None:
+        name = parse_filename_heuristic(filename, prefix, index, suffix)
 
     if name is None and strict:
         logging.error("Unable to parse %s, moving to %s!", filename, fail)
