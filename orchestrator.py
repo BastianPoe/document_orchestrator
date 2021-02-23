@@ -366,7 +366,7 @@ def process_scanner_file(directory,
                          fail,
                          strict=True,
                          suffix=None,
-                         force_ocr=False):
+                         force_ocr=True):
     name = None
     index = get_index(archive_raw)
 
@@ -786,7 +786,7 @@ def main():
                                      dirs["ocr_queue"], dirs["consumption"],
                                      dirs["archive_raw"],
                                      dirs["archive_ocred"], dirs["parse_fail"],
-                                     False, "email", False)
+                                     False, "email", True)
 
             last_scanner_out = time.time()
 
