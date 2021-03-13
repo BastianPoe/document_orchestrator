@@ -370,7 +370,9 @@ def process_scanner_file(directory,
     name = None
     index = get_index(archive_raw)
 
-    logging.info("Handling scanned file %s", filename)
+    logging.info(
+        "Handling scanned file %s (strict=%s, suffix=%s, force_ocr=%s)",
+        filename, strict, suffix, force_ocr)
     wait_for_file_to_stabilize(os.path.join(directory, filename))
 
     name = parse_app_filename(filename, prefix, index, suffix)
