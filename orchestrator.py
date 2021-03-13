@@ -633,11 +633,16 @@ def file_needs_ocr(filename):
         return True
 
     text = "".join(lines)
+    length = len(text.strip())
+    ret = True
 
     if len(text.strip()) > 50:
-        return False
+        ret = False
 
-    return True
+    logging.debug("file_needs_ocr: File %s has length %i, needs_ocr=%s",
+                  filename, length, ret)
+
+    return ret
 
 
 def cleanup_ocr_in(ocr_in, ocr_fail, ocr_queue, error=None):
