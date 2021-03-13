@@ -198,7 +198,7 @@ def parse_app_filename(filename, prefix, index, suffix):
             r"[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}([0-9]{1,2})[\.\-_]{1}" + \
             r"([0-9]{1,2})[\.\-_]{1}([0-9]{1,2}).*\.pdf$"
 
-    matches = re.match(regex_app, filename)
+    matches = re.match(regex_app, filename, re.IGNORECASE)
     if matches is None:
         return None
 
@@ -222,7 +222,7 @@ def parse_app_filename(filename, prefix, index, suffix):
 def parse_adf_filename(filename, prefix, index, suffix):
     regex_scanner = r"^([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]{2})([0-9]{2})" + \
             r"([0-9]{2})_[0-9a-zA-Z]+_[0-9]+\.pdf$"
-    matches = re.match(regex_scanner, filename)
+    matches = re.match(regex_scanner, filename, re.IGNORECASE)
     if matches is None:
         return None
 
@@ -246,7 +246,7 @@ def parse_adf_filename(filename, prefix, index, suffix):
 def parse_canon_filename(filename, prefix, index, suffix):
     # IMG_20210202_0001.pdf
     regex_canon = r"IMG_([0-9]{4})([0-9]{2})([0-9]{2})_([0-9]+)[0-9\(\)]*.pdf$"
-    matches = re.match(regex_canon, filename)
+    matches = re.match(regex_canon, filename, re.IGNORECASE)
     if matches is None:
         return None
 
@@ -273,7 +273,7 @@ def parse_filename_heuristic(filename, prefix, index, suffix):
     regex_heuristic = r"([0-9]{4})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
             r"[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})[\-\._]{1}([0-9]{2})" + \
             r".*\.pdf$"
-    matches = re.match(regex_heuristic, filename)
+    matches = re.match(regex_heuristic, filename, re.IGNORECASE)
 
     if matches is None:
         return None
@@ -649,7 +649,7 @@ def file_needs_ocr(filename):
 
 def cleanup_ocr_in(ocr_in, ocr_fail, ocr_queue, error=None):
     # OCR seems to have failed - update status and move away file
-    failed_ocr = glob.glob(os.path.join(ocr_in, "*.pdf"))
+    failed_ocr = glob.glob(os.path.join(ocr_in, "*.[pP][dD][fF]"))
     if len(failed_ocr) == 0:
         logging.error("Failed OCR: Input vanished, deleting log")
         return True
@@ -741,7 +741,8 @@ def main():
         # Process all files coming in from the scanner
         if (time.time() - last_scanner_out) >= 6:
             # logging.debug("Processing %s", dirs["scanner_in"])
-            files = glob.glob(os.path.join(dirs["scanner_in"], "*.pdf"))
+            files = glob.glob(
+                os.path.join(dirs["scanner_in"], "*.[pP][dD][fF]"))
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
@@ -759,7 +760,8 @@ def main():
                                      dirs["archive_ocred"], dirs["parse_fail"],
                                      True, "scanner", True)
 
-            files = glob.glob(os.path.join(dirs["mobile_in"], "*.pdf"))
+            files = glob.glob(os.path.join(dirs["mobile_in"],
+                                           "*.[pP][dD][fF]"))
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
@@ -777,7 +779,7 @@ def main():
                                      dirs["archive_ocred"], dirs["parse_fail"],
                                      False, "mobile", True)
 
-            files = glob.glob(os.path.join(dirs["email_in"], "*.pdf"))
+            files = glob.glob(os.path.join(dirs["email_in"], "*.[pP][dD][fF]"))
             for fullfile in files:
                 filename = os.path.basename(fullfile)
 
@@ -801,7 +803,7 @@ def main():
         if (time.time() - last_ocr_out) >= 5:
             # logging.debug("Processing %s", dirs["ocr_out"])
 
-            files = glob.glob(os.path.join(dirs["ocr_out"], "*.pdf"))
+            files = glob.glob(os.path.join(dirs["ocr_out"], "*.[pP][dD][fF]"))
             for fullfile in files:
                 # Make sure that files have not been recently changed before touching them
                 wait_for_file_to_stabilize(fullfile)
@@ -820,7 +822,10 @@ def main():
                 # Make sure that files have not been recently changed before touching them
                 wait_for_file_to_stabilize(fullfile)
 
-                if len(glob.glob(os.path.join(dirs["ocr_out"], "*.pdf"))) > 0:
+                if len(
+                        glob.glob(
+                            os.path.join(dirs["ocr_out"],
+                                         "*.[pP][dD][fF]"))) > 0:
                     logging.warning(
                         "OCR output PDF suddenly appeared, skipping")
                     break
@@ -832,7 +837,7 @@ def main():
                 stats = parse_ocr_log(dirs["ocr_out"], filename)
 
                 candidate_pdfs = glob.glob(
-                    os.path.join(dirs["ocr_in"], "*.pdf"))
+                    os.path.join(dirs["ocr_in"], "*.[pP][dD][fF]"))
                 if len(candidate_pdfs) == 1:
                     # There is one PDF in the ocr_in folder and we have found the log for it
                     candidate_pdf = os.path.basename(candidate_pdfs[0])
@@ -874,7 +879,7 @@ def main():
                         continue
 
                     filename, file_extension = os.path.splitext(file)
-                    if file_extension != ".pdf":
+                    if file_extension.lower() != ".pdf":
                         continue
 
                     ret = serve_ocr_queue(dirs["ocr_queue"], file,
